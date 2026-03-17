@@ -31,6 +31,9 @@ app.use((req, res, next) => {
     next();
 });
 
+const cors = require('cors');
+app.use(cors());
+
 //rutas
 app.use('/api', routesAuth);
 app.use('/api', routesIntegrations);
