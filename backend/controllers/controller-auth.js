@@ -2,6 +2,7 @@
 
 var bcrypt = require('bcryptjs');
 var jwt = require('jsonwebtoken');
+var mongoose = require('mongoose');
 var User = require('../modules/module-user');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_proyecto_almacen_2026';
@@ -35,9 +36,33 @@ async function canRegisterFirstUser() {
 	return totalUsers === 0;
 }
 
+function ensureDatabaseReady(res) {
+	if (mongoose.connection.readyState === 1) {
+		return true;
+	}
+
+	res.status(503).send({
+		message: 'Base de datos no disponible. Verifica MONGO_URI y el acceso de red en MongoDB Atlas.'
+	});
+
+	return false;
+}
+
+function getErrorPayload(err, fallbackMessage) {
+	return {
+		message: fallbackMessage,
+		error: {
+			message: err?.message || fallbackMessage,
+			name: err?.name || 'Error'
+		}
+	};
+}
+
 var controller = {
 	register: async (req, res) => {
 		try {
+			if (!ensureDatabaseReady(res)) return;
+
 			const canRegister = await canRegisterFirstUser();
 			if (!canRegister) {
 				return res.status(403).send({ message: 'El primer usuario ya fue creado' });
@@ -72,23 +97,27 @@ var controller = {
 			const stored = await user.save();
 			return res.status(201).send({ user: sanitizeUser(stored) });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al registrar usuario', error: err });
+			return res.status(500).send(getErrorPayload(err, 'Error al registrar usuario'));
 		}
 	},
 
 	bootstrapStatus: async (req, res) => {
 		try {
+			if (!ensureDatabaseReady(res)) return;
+
 			const canRegister = await canRegisterFirstUser();
 			return res.status(200).send({
 				canRegisterFirstUser: canRegister
 			});
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al consultar el estado de autenticación inicial', error: err });
+			return res.status(500).send(getErrorPayload(err, 'Error al consultar el estado de autenticación inicial'));
 		}
 	},
 
 	login: async (req, res) => {
 		try {
+			if (!ensureDatabaseReady(res)) return;
+
 			const email = String(req.body?.email || '').trim().toLowerCase();
 			const password = String(req.body?.password || '');
 
@@ -109,12 +138,14 @@ var controller = {
 			const token = signToken(user);
 			return res.status(200).send({ token, user: sanitizeUser(user) });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error en login', error: err });
+			return res.status(500).send(getErrorPayload(err, 'Error en login'));
 		}
 	},
 
 	me: async (req, res) => {
 		try {
+			if (!ensureDatabaseReady(res)) return;
+
 			const userId = String(req.user?.sub || '');
 			if (!userId) return res.status(401).send({ message: 'No autorizado' });
 
@@ -125,7 +156,7 @@ var controller = {
 
 			return res.status(200).send({ user: sanitizeUser(user) });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al obtener usuario actual', error: err });
+			return res.status(500).send(getErrorPayload(err, 'Error al obtener usuario actual'));
 		}
 	}
 };
