@@ -26,9 +26,6 @@ app.use(cors({
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'x-api-key']
 }));
 
-const cors = require('cors');
-app.use(cors());
-
 //rutas
 app.use('/api', routesAuth);
 app.use('/api', routesIntegrations);
