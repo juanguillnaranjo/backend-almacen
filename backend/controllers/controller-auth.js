@@ -30,9 +30,19 @@ function signToken(user) {
 	);
 }
 
+async function canRegisterFirstUser() {
+	const totalUsers = await User.countDocuments({});
+	return totalUsers === 0;
+}
+
 var controller = {
 	register: async (req, res) => {
 		try {
+			const canRegister = await canRegisterFirstUser();
+			if (!canRegister) {
+				return res.status(403).send({ message: 'El primer usuario ya fue creado' });
+			}
+
 			const name = String(req.body?.name || '').trim();
 			const email = String(req.body?.email || '').trim().toLowerCase();
 			const password = String(req.body?.password || '');
@@ -63,6 +73,17 @@ var controller = {
 			return res.status(201).send({ user: sanitizeUser(stored) });
 		} catch (err) {
 			return res.status(500).send({ message: 'Error al registrar usuario', error: err });
+		}
+	},
+
+	bootstrapStatus: async (req, res) => {
+		try {
+			const canRegister = await canRegisterFirstUser();
+			return res.status(200).send({
+				canRegisterFirstUser: canRegister
+			});
+		} catch (err) {
+			return res.status(500).send({ message: 'Error al consultar el estado de autenticación inicial', error: err });
 		}
 	},
 

@@ -5,6 +5,8 @@ var controllerAuth = require('../controllers/controller-auth');
 var mdAuth = require('../middlewares/authenticated');
 var router = express.Router();
 
+router.get('/auth/bootstrap-status', controllerAuth.bootstrapStatus);
+router.post('/auth/register', controllerAuth.register);
 router.post('/auth/login', controllerAuth.login);
 router.get('/auth/me', mdAuth.ensureAuth, controllerAuth.me);
 
