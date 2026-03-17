@@ -1,11 +1,14 @@
 'use strict'
 
+require('dotenv').config();
+
 var mongoose = require('mongoose');
 var app = require('./app');
-var port = 3700;
+var port = Number(process.env.PORT || 3700);
+var mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/CuentasAlmacen';
 
 mongoose.Promise = global.Promise;
-mongoose.connect('mongodb://localhost:27017/CuentasAlmacen')
+mongoose.connect(mongoUri)
     .then(() =>{ 
         console.log('Conexión a MongoDB exitosa');
 

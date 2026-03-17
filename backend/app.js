@@ -1,6 +1,7 @@
 'use strict'
 
 var express = require('express');
+var cors = require('cors');
 
 var app = express();
 
@@ -19,17 +20,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 //cors
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-api-key');
-
-    if (req.method === 'OPTIONS') {
-        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH');
-        return res.status(200).end();
-    }
-
-    next();
-});
+app.use(cors({
+    origin: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'x-api-key']
+}));
 
 const cors = require('cors');
 app.use(cors());
