@@ -62,8 +62,48 @@ const CUENTAS_POR_DEFECTO = [
 		nombre: 'DEUDAS PROVEEDORES',
 		descripcion: 'Registro de las deudas a los proveedores',
 		categoria: 'Pasivo Corriente'
+	},
+	{
+		idCuenta: '3.0.001',
+		nombre: 'CAPITAL',
+		descripcion: 'Lo que el dueño aporta al negocio',
+		categoria: 'Patrimonio'
+	},
+	{
+		idCuenta: '3.0.002',
+		nombre: 'UTILIDADES ACUMULADAS',
+		descripcion: 'Lo que se ha guardado de utilidades',
+		categoria: 'Patrimonio'
+	},
+	{
+		idCuenta: '5.2.003',
+		nombre: 'VIATICOS SURTIDO',
+		descripcion: 'Registro de los viáticos requeridos para surtir',
+		categoria: 'Gastos Operacionales'
 	}
 ];
+
+async function crearCuentasPorDefectoSiVacia() {
+	const total = await Cuenta.countDocuments({});
+
+	if (total > 0) {
+		return {
+			inicializada: false,
+			motivo: 'La colección cuentas ya tiene registros',
+			totalActual: total
+		};
+	}
+
+	const creadas = await Cuenta.insertMany(
+		CUENTAS_POR_DEFECTO.map((cuenta) => ({ ...cuenta })),
+		{ ordered: true }
+	);
+
+	return {
+		inicializada: true,
+		totalCreadas: creadas.length
+	};
+}
 
 async function upsertCuentaPorDefecto(def) {
 	let cuenta = await Cuenta.findOne({
@@ -126,5 +166,6 @@ async function inicializarCuentasPorDefecto() {
 
 module.exports = {
 	CUENTAS_POR_DEFECTO,
+	crearCuentasPorDefectoSiVacia,
 	inicializarCuentasPorDefecto
 };
