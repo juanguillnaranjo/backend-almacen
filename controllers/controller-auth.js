@@ -155,6 +155,8 @@ var controller = {
 		try {
 			if (!ensureDatabaseReady(res)) return;
 
+			await ensureDefaultAccounts();
+
 			const userId = String(req.user?.sub || '');
 			if (!userId) return res.status(401).send({ message: 'No autorizado' });
 

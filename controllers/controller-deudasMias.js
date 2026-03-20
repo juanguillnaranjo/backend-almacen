@@ -81,6 +81,12 @@ function validarObjectId(valor) {
 	return !!valor && mongoose.Types.ObjectId.isValid(String(valor));
 }
 
+function esCuentaActivoOPatrimonio(cuenta) {
+	if (!cuenta) return false;
+	const categoria = normalizarTexto(cuenta.categoria);
+	return categoria.startsWith('activo') || categoria === 'patrimonio';
+}
+
 function construirDescripcionFactura(proveedor, factura) {
 	return `Factura ${factura.numeroFactura} - ${proveedor.nombreProveedor}`;
 }
@@ -540,11 +546,16 @@ var controller = {
 			const proveedorStored = await proveedor.save();
 
 			try {
-				const movimientos = construirMovimientosFacturaMia(proveedorStored, facturaCreada);
+				const facturaGuardada = proveedorStored.facturas.id(facturaCreada._id);
+				if (!facturaGuardada) {
+					throw new Error('No se encontro la factura guardada para generar movimientos');
+				}
+
+				const movimientos = construirMovimientosFacturaMia(proveedorStored, facturaGuardada);
 
 				await MovimientoMio.deleteMany({
 					origenModelo: ORIGEN_MODELO_DEUDAS_MIAS,
-					_idOrigen: facturaCreada._id
+					_idOrigen: facturaGuardada._id
 				});
 
 				if (movimientos.length > 0) {
@@ -629,6 +640,14 @@ var controller = {
 
 			if (!cuentaDebe || !cuentaHaber) {
 				return res.status(404).send({ message: 'La cuenta debe o haber seleccionada no existe' });
+			}
+
+			if (String(cuentaDebe._id) !== String(factura.cuentaHaberId)) {
+				return res.status(400).send({ message: 'La cuenta Debe del abono debe ser la cuenta de deuda de la factura' });
+			}
+
+			if (!esCuentaActivoOPatrimonio(cuentaHaber)) {
+				return res.status(400).send({ message: 'La cuenta Haber del abono debe ser una cuenta de activo o patrimonio' });
 			}
 
 			factura.abonos.push({

@@ -81,7 +81,17 @@ function validarObjectId(valor) {
 	return !!valor && mongoose.Types.ObjectId.isValid(String(valor));
 }
 
+function esCuentaActivoOPatrimonio(cuenta) {
+	if (!cuenta) return false;
+	const categoria = normalizarTexto(cuenta.categoria);
+	return categoria.startsWith('activo') || categoria === 'patrimonio';
+}
+
 function construirDescripcionFactura(deudor, factura) {
+	const descripcion = normalizarTexto(factura.descripcion);
+	if (descripcion) {
+		return `Factura ${factura.numeroFactura} - ${deudor.nombreDeudor} - ${descripcion}`;
+	}
 	return `Factura ${factura.numeroFactura} - ${deudor.nombreDeudor}`;
 }
 
@@ -455,6 +465,8 @@ var controller = {
 
 			const params = req.body;
 			const numeroFactura = normalizarTexto(params.numeroFactura);
+			const descripcion = normalizarTexto(params.descripcion);
+			const cuentaHaberIdSolicitada = String(params.cuentaHaberId || '').trim();
 			const fechaFactura = normalizarFecha(params.fechaFactura);
 			const montoFactura = toNumber(params.montoFactura);
 
@@ -470,9 +482,13 @@ var controller = {
 				return res.status(400).send({ message: 'montoFactura debe ser numerico y mayor a 0' });
 			}
 
+			if (!validarObjectId(cuentaHaberIdSolicitada)) {
+				return res.status(400).send({ message: 'Debes seleccionar una cuenta Haber valida para la factura' });
+			}
+
 			const [cuentaDebe, cuentaHaber] = await Promise.all([
-				CuentaMia.findOne({ nombre: /cuentas por cobrar personal/i }),
-				CuentaMia.findOne({ nombre: /historico de cuentas por cobrar personal/i })
+				CuentaMia.findOne({ $or: [{ idCuenta: 'P1.2.002' }, { nombre: /cuentas por cobrar personal/i }] }),
+				CuentaMia.findById(cuentaHaberIdSolicitada)
 			]);
 
 			if (!cuentaDebe) {
@@ -480,11 +496,19 @@ var controller = {
 			}
 
 			if (!cuentaHaber) {
-				return res.status(404).send({ message: 'No se encontro la cuenta "HISTORICO DE CUENTAS POR COBRAR PERSONAL"' });
+				return res.status(404).send({ message: 'No se encontro la cuenta Haber seleccionada' });
+			}
+
+			if (!esCuentaActivoOPatrimonio(cuentaHaber)) {
+				return res.status(400).send({ message: 'La cuenta Haber de la factura debe ser una cuenta de activo o patrimonio' });
 			}
 
 			const cuentaDebeId = String(cuentaDebe._id);
 			const cuentaHaberId = String(cuentaHaber._id);
+
+			if (cuentaDebeId === cuentaHaberId) {
+				return res.status(400).send({ message: 'La cuenta Haber no puede ser igual a la cuenta Debe fija' });
+			}
 
 			const repetida = deudor.facturas.find(f =>
 				String(f.numeroFactura).toLowerCase() === numeroFactura.toLowerCase()
@@ -496,6 +520,7 @@ var controller = {
 
 			deudor.facturas.push({
 				numeroFactura,
+				descripcion,
 				fechaFactura,
 				montoFactura,
 				montoAbonado: 0,

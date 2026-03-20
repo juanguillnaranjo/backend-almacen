@@ -1,29 +1,31 @@
 'use strict'
 
-var Cuenta = require('../modules/cuenta');
-var Movimiento = require('../modules/module-movimientos');
-var defaultCuentasService = require('./services/default-cuentas.service');
+var CuentaMia = require('../modules/module-cuentasMias');
+var MovimientoMio = require('../modules/module-movimientoMios');
+var defaultCuentasMiasService = require('./services/default-cuentas-mias.service');
 
-// Mapa jerárquico del plan de cuentas (compatible con Odoo / QuickBooks)
+// Plan de cuentas personal — misma jerarquía que la del almacén,
+// prefijo 'P' para distinguir: P1.1.001 (personal) vs 1.1.001 (almacén)
 const CATEGORIA_PREFIJOS = {
-    'Activo Corriente':        '1.1',
-    'Activo No Corriente':     '1.2',
-    'Pasivo Corriente':        '2.1',
-    'Pasivo No Corriente':     '2.2',
-    'Patrimonio':              '3.0',
-    'Ingresos Operacionales':  '4.1',
-    'Otros Ingresos':          '4.2',
-    'Costos de Ventas':        '5.1',
-    'Gastos Operacionales':    '5.2',
-    'Gastos No Operacionales': '5.3',
+    'Activo Corriente':        'P1.1',
+    'Activo No Corriente':     'P1.2',
+    'Pasivo Corriente':        'P2.1',
+    'Pasivo No Corriente':     'P2.2',
+    'Patrimonio':              'P3.0',
+    'Ingresos Operacionales':  'P4.1',
+    'Otros Ingresos':          'P4.2',
+    'Costos de Ventas':        'P5.1',
+    'Gastos Operacionales':    'P5.2',
+    'Gastos No Operacionales': 'P5.3',
 };
 
 async function generarIdCuenta(categoria) {
     const prefijo = CATEGORIA_PREFIJOS[categoria];
     if (!prefijo) throw new Error(`Categoria no reconocida: ${categoria}`);
 
+    // Escapa los puntos para la regex: P1\.1
     const prefijoRegex = prefijo.replace(/\./g, '\\.');
-    const cuentas = await Cuenta.find({
+    const cuentas = await CuentaMia.find({
         idCuenta: { $regex: `^${prefijoRegex}\\.` }
     }).select('idCuenta');
 
@@ -40,15 +42,18 @@ async function generarIdCuenta(categoria) {
 }
 
 var controller = {
-// metodos para cuentas
 
-    getCuentas: async (req, res) => {
+    getCuentasMias: async (req, res) => {
         try {
-            const cuentas = await Cuenta.find({}).sort({ idCuenta: 1 });
-            if (!cuentas || cuentas.length === 0) return res.status(404).send({ message: 'No hay cuentas para mostrar' });
+            await defaultCuentasMiasService.inicializarCuentasMiasPorDefecto();
+
+            const cuentas = await CuentaMia.find({}).sort({ idCuenta: 1 });
+            if (!cuentas || cuentas.length === 0) {
+                return res.status(404).send({ message: 'No hay cuentas personales para mostrar' });
+            }
 
             const cuentasIds = cuentas.map(c => c._id);
-            const saldosPorCuenta = await Movimiento.aggregate([
+            const saldosPorCuenta = await MovimientoMio.aggregate([
                 { $match: { cuentaId: { $in: cuentasIds } } },
                 {
                     $group: {
@@ -77,23 +82,29 @@ var controller = {
 
             return res.status(200).send({ cuentas: cuentasConSaldo });
         } catch (err) {
-            return res.status(500).send({ message: 'Error al devolver las cuentas', error: err });
+            return res.status(500).send({ message: 'Error al obtener cuentas personales', error: err.message || err });
         }
     },
 
-    
-    createCuenta: async (req, res) => {
+    createCuentaMia: async (req, res) => {
         try {
-            const params = req.body;
+            const { nombre, descripcion, categoria, liquidez } = req.body;
 
-            const idCuenta = await generarIdCuenta(params.categoria);
+            if (!nombre || !nombre.trim()) {
+                return res.status(400).send({ message: 'El nombre de la cuenta es obligatorio' });
+            }
+            if (!categoria || !CATEGORIA_PREFIJOS[categoria]) {
+                return res.status(400).send({ message: 'Categoria no valida' });
+            }
 
-            const cuenta = new Cuenta({
+            const idCuenta = await generarIdCuenta(categoria);
+
+            const cuenta = new CuentaMia({
                 idCuenta,
-                nombre:      params.nombre,
-                descripcion: params.descripcion,
-                categoria:   params.categoria,
-                liquidez:    params?.liquidez === true
+                nombre:      nombre.trim(),
+                descripcion: descripcion ? descripcion.trim() : '',
+                categoria,
+                liquidez: liquidez === true
             });
 
             const cuentaStored = await cuenta.save();
@@ -101,16 +112,16 @@ var controller = {
             cuentaConSaldo.saldo = 0;
             return res.status(200).send({ cuenta: cuentaConSaldo });
         } catch (err) {
-            return res.status(500).send({ message: 'Error al guardar la cuenta', error: err.message || err });
+            return res.status(500).send({ message: 'Error al crear la cuenta personal', error: err.message || err });
         }
     },
 
-    updateCuenta: async (req, res) => {
+    updateCuentaMia: async (req, res) => {
         try {
             const { id } = req.params;
             const { nombre, descripcion, categoria, liquidez } = req.body || {};
 
-            const cuenta = await Cuenta.findById(id);
+            const cuenta = await CuentaMia.findById(id);
             if (!cuenta) {
                 return res.status(404).send({ message: 'Cuenta no encontrada' });
             }
@@ -132,7 +143,7 @@ var controller = {
                 updateData.idCuenta = await generarIdCuenta(categoriaLimpia);
             }
 
-            const cuentaUpdated = await Cuenta.findOneAndUpdate(
+            const cuentaUpdated = await CuentaMia.findOneAndUpdate(
                 { _id: id },
                 { $set: updateData },
                 { returnDocument: 'after' }
@@ -142,7 +153,7 @@ var controller = {
                 return res.status(404).send({ message: 'Cuenta no encontrada' });
             }
 
-            const saldoResult = await Movimiento.aggregate([
+            const saldoResult = await MovimientoMio.aggregate([
                 { $match: { cuentaId: cuentaUpdated._id } },
                 {
                     $group: {
@@ -168,12 +179,11 @@ var controller = {
         }
     },
 
-    deleteCuenta: async (req, res) => {
+    deleteCuentaMia: async (req, res) => {
         try {
             const { id } = req.params;
             const { confirmacion } = req.body || {};
-
-            const cuenta = await Cuenta.findById(id);
+            const cuenta = await CuentaMia.findById(id);
             if (!cuenta) {
                 return res.status(404).send({ message: 'Cuenta no encontrada' });
             }
@@ -185,31 +195,13 @@ var controller = {
                 });
             }
 
-            const totalMovimientos = await Movimiento.countDocuments({ cuentaId: cuenta._id });
-            if (totalMovimientos > 0) {
-                return res.status(409).send({
-                    message: 'No se puede eliminar la cuenta porque tiene movimientos asociados.'
-                });
-            }
-
-            await Cuenta.findByIdAndDelete(id);
+            await CuentaMia.findByIdAndDelete(id);
             return res.status(200).send({ message: 'Cuenta eliminada correctamente' });
         } catch (err) {
             return res.status(500).send({ message: 'Error al eliminar la cuenta', error: err.message || err });
         }
-    },
-
-    initCuentasDefault: async (req, res) => {
-        try {
-            const resultado = await defaultCuentasService.inicializarCuentasPorDefecto();
-            return res.status(200).send({
-                message: 'Inicializacion de cuentas por defecto ejecutada',
-                resultado
-            });
-        } catch (err) {
-            return res.status(500).send({ message: 'Error al inicializar cuentas por defecto', error: err.message || err });
-        }
     }
-    
+
 };
+
 module.exports = controller;

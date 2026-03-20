@@ -13,6 +13,7 @@ var AbonoFacturaMiaSchema = Schema({
 
 var FacturaMiaSchema = Schema({
 	numeroFactura: { type: String, required: true, trim: true },
+	descripcion: { type: String, default: '' },
 	tipoCobro: { type: String, required: true, trim: true, lowercase: true, default: 'otros' },
 	fechaFactura: { type: Date, required: true },
 	montoFactura: { type: Number, required: true, min: 0.01 },
