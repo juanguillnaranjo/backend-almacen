@@ -13,6 +13,14 @@ var routesMovimientos = require('./routes/routes-movimientos.js');
 var routesCierresDiarios = require('./routes/routes-cierresDiarios.js');
 var routesDeudas = require('./routes/routes-deudas.js');
 var routesProcesoSurtido = require('./routes/routes-procesoSurtido.js');
+var routesCuentasMias = require('./routes/routes-cuentasMias.js');
+var routesMovimientosMios = require('./routes/routes-movimientosMios.js');
+var routesDeudasMias = require('./routes/routes-deudasMias.js');
+var routesCobrarMias = require('./routes/routes-cobrarMias.js');
+var routesCobrarAlmacen = require('./routes/routes-cobrarAlmacen.js');
+var routesIngresosMios = require('./routes/routes-ingresosMios.js');
+var routesGastosMios = require('./routes/routes-gastosMios.js');
+var routesDashboardPersonal = require('./routes/routes-dashboardPersonal.js');
 var mdAuth = require('./middlewares/authenticated');
 
 //moddlewares
@@ -35,6 +43,14 @@ app.use('/api', routesMovimientos);
 app.use('/api', routesCierresDiarios);
 app.use('/api', routesDeudas);
 app.use('/api', routesProcesoSurtido);
+app.use('/api', routesCuentasMias);
+app.use('/api', routesMovimientosMios);
+app.use('/api', routesDeudasMias);
+app.use('/api', routesCobrarMias);
+app.use('/api', routesCobrarAlmacen);
+app.use('/api', routesIngresosMios);
+app.use('/api', routesGastosMios);
+app.use('/api', routesDashboardPersonal);
 
 
 //exportar modulo

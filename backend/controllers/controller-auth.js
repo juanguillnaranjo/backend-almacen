@@ -4,6 +4,8 @@ var bcrypt = require('bcryptjs');
 var jwt = require('jsonwebtoken');
 var mongoose = require('mongoose');
 var User = require('../modules/module-user');
+var defaultCuentasService = require('./services/default-cuentas.service');
+var defaultCuentasMiasService = require('./services/default-cuentas-mias.service');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_proyecto_almacen_2026';
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
@@ -56,6 +58,11 @@ function getErrorPayload(err, fallbackMessage) {
 			name: err?.name || 'Error'
 		}
 	};
+}
+
+async function ensureDefaultAccounts() {
+	await defaultCuentasService.inicializarCuentasPorDefecto();
+	await defaultCuentasMiasService.inicializarCuentasMiasPorDefecto();
 }
 
 var controller = {
@@ -134,6 +141,8 @@ var controller = {
 			if (!valid) {
 				return res.status(401).send({ message: 'Credenciales invalidas' });
 			}
+
+			await ensureDefaultAccounts();
 
 			const token = signToken(user);
 			return res.status(200).send({ token, user: sanitizeUser(user) });

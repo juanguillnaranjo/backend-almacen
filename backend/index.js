@@ -5,6 +5,7 @@ require('dotenv').config();
 var mongoose = require('mongoose');
 var app = require('./app');
 var defaultCuentasService = require('./controllers/services/default-cuentas.service');
+var defaultCuentasMiasService = require('./controllers/services/default-cuentas-mias.service');
 var port = Number(process.env.PORT || 3700);
 var mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/CuentasAlmacen';
 var mongoRetryMs = Number(process.env.MONGO_RETRY_MS || 10000);
@@ -23,12 +24,16 @@ function connectMongoWithRetry() {
 
             if (!cuentasDefaultInicializadas) {
                 try {
-                    const resultado = await defaultCuentasService.crearCuentasPorDefectoSiVacia();
-                    if (resultado.inicializada) {
-                        console.log(`Cuentas por defecto creadas automaticamente: ${resultado.totalCreadas}`);
-                    } else {
-                        console.log(`Inicialización de cuentas omitida: ${resultado.motivo}`);
-                    }
+                    const resultadoAlmacen = await defaultCuentasService.inicializarCuentasPorDefecto();
+                    console.log(
+                        `Cuentas por defecto (almacen): creadas=${resultadoAlmacen.creadas}, actualizadas=${resultadoAlmacen.actualizadas}, sinCambios=${resultadoAlmacen.sinCambios}`
+                    );
+
+                    const resultadoPersonal = await defaultCuentasMiasService.inicializarCuentasMiasPorDefecto();
+                    console.log(
+                        `Cuentas por defecto (personal): creadas=${resultadoPersonal.creadas}, actualizadas=${resultadoPersonal.actualizadas}, sinCambios=${resultadoPersonal.sinCambios}`
+                    );
+
                     cuentasDefaultInicializadas = true;
                 } catch (seedErr) {
                     console.error('Error al inicializar cuentas por defecto:', seedErr?.message || seedErr);

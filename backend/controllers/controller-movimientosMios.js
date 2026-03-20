@@ -1,10 +1,10 @@
 'use strict'
 
 var mongoose = require('mongoose');
-var Movimiento = require('../modules/module-movimientos');
-var Cuenta = require('../modules/cuenta');
+var MovimientoMio = require('../modules/module-movimientoMios');
+var CuentaMia = require('../modules/module-cuentasMias');
 
-const ORIGENES_MODELO_VALIDOS = ['gastofamilias', 'pagos', 'salidascaja', 'adicionbase', 'cierresdiarios', 'deudasproveedores', 'procesossurtido', 'manual', 'cobraalmacen'];
+const ORIGENES_MODELO_VALIDOS = ['gastofamilias', 'pagos', 'salidascaja', 'adicionbase', 'cierresdiarios', 'deudasproveedores', 'procesossurtido', 'ingresosmios', 'manual'];
 
 function normalizarOrigenModelo(origenModelo) {
 	if (origenModelo === undefined || origenModelo === null) return '';
@@ -39,77 +39,44 @@ function normalizarFecha(fecha) {
 }
 
 var controller = {
-	getMovimientos: async (req, res) => {
+	getMovimientosMios: async (req, res) => {
 		try {
-			const movimientos = await Movimiento.find({})
+			const movimientos = await MovimientoMio.find({})
 				.populate('cuentaId', 'idCuenta nombre categoria')
 				.sort({ fecha: -1 });
 
 			if (!movimientos || movimientos.length === 0) {
-				return res.status(404).send({ message: 'No hay movimientos para mostrar' });
+				return res.status(404).send({ message: 'No hay movimientos personales para mostrar' });
 			}
 
 			return res.status(200).send({ movimientos });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al devolver los movimientos', error: err });
+			return res.status(500).send({ message: 'Error al devolver los movimientos personales', error: err });
 		}
 	},
 
-	getMovimientosByOrigen: async (req, res) => {
-		try {
-			const _idOrigen = req.params.idOrigen;
-			const origenModelo = normalizarOrigenModelo(req.params.origenModelo || req.query.origenModelo);
-
-			if (!origenModelo) {
-				return res.status(400).send({ message: 'origenModelo es obligatorio para trazabilidad multicoleccion' });
-			}
-
-			if (!esOrigenModeloValido(origenModelo)) {
-				return res.status(400).send({
-					message: `origenModelo invalido. Valores permitidos: ${ORIGENES_MODELO_VALIDOS.join(', ')}`
-				});
-			}
-
-			if (!_idOrigen || !mongoose.Types.ObjectId.isValid(_idOrigen)) {
-				return res.status(400).send({ message: 'idOrigen invalido' });
-			}
-
-			const movimientos = await Movimiento.find({ _idOrigen, origenModelo })
-				.populate('cuentaId', 'idCuenta nombre categoria')
-				.sort({ fecha: -1 });
-
-			if (!movimientos || movimientos.length === 0) {
-				return res.status(404).send({ message: 'No hay movimientos para el idOrigen indicado' });
-			}
-
-			return res.status(200).send({ movimientos });
-		} catch (err) {
-			return res.status(500).send({ message: 'Error al devolver movimientos por idOrigen', error: err });
-		}
-	},
-
-	getMovimientosByCuenta: async (req, res) => {
+	getMovimientosMiosByCuenta: async (req, res) => {
 		try {
 			const cuentaId = req.params.cuentaId;
 			if (!cuentaId || !mongoose.Types.ObjectId.isValid(cuentaId)) {
 				return res.status(400).send({ message: 'cuentaId invalido' });
 			}
 
-			const movimientos = await Movimiento.find({ cuentaId })
+			const movimientos = await MovimientoMio.find({ cuentaId })
 				.populate('cuentaId', 'idCuenta nombre categoria')
 				.sort({ fecha: -1, _id: -1 });
 
 			if (!movimientos || movimientos.length === 0) {
-				return res.status(404).send({ message: 'No hay movimientos para la cuenta seleccionada' });
+				return res.status(404).send({ message: 'No hay movimientos personales para la cuenta seleccionada' });
 			}
 
 			return res.status(200).send({ movimientos });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al devolver movimientos por cuenta', error: err });
+			return res.status(500).send({ message: 'Error al devolver movimientos personales por cuenta', error: err });
 		}
 	},
 
-	createMovimiento: async (req, res) => {
+	createMovimientoMio: async (req, res) => {
 		try {
 			const params = req.body;
 			const origenModelo = normalizarOrigenModelo(params.origenModelo) || 'manual';
@@ -141,12 +108,12 @@ var controller = {
 				return res.status(400).send({ message: 'Debe registrar solo debe o solo haber, y debe ser mayor a 0' });
 			}
 
-			const cuentaExiste = await Cuenta.findById(params.cuentaId);
+			const cuentaExiste = await CuentaMia.findById(params.cuentaId);
 			if (!cuentaExiste) {
-				return res.status(404).send({ message: 'La cuenta seleccionada no existe' });
+				return res.status(404).send({ message: 'La cuenta personal seleccionada no existe' });
 			}
 
-			const movimiento = new Movimiento({
+			const movimiento = new MovimientoMio({
 				cuentaId: params.cuentaId,
 				origenModelo,
 				_idOrigen: idOrigen,
@@ -157,16 +124,16 @@ var controller = {
 			});
 
 			const movimientoStored = await movimiento.save();
-			const movimientoConCuenta = await Movimiento.findById(movimientoStored._id)
+			const movimientoConCuenta = await MovimientoMio.findById(movimientoStored._id)
 				.populate('cuentaId', 'idCuenta nombre categoria');
 
 			return res.status(200).send({ movimiento: movimientoConCuenta });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al guardar el movimiento', error: err });
+			return res.status(500).send({ message: 'Error al guardar el movimiento personal', error: err });
 		}
 	},
 
-	createAsientoManual: async (req, res) => {
+	createAsientoManualMio: async (req, res) => {
 		try {
 			const params = req.body;
 			const origenModelo = normalizarOrigenModelo(params.origenModelo) || 'manual';
@@ -204,8 +171,8 @@ var controller = {
 			}
 
 			const [cuentaOrigen, cuentaDestino] = await Promise.all([
-				Cuenta.findById(cuentaOrigenId),
-				Cuenta.findById(cuentaDestinoId)
+				CuentaMia.findById(cuentaOrigenId),
+				CuentaMia.findById(cuentaDestinoId)
 			]);
 
 			if (!cuentaOrigen || !cuentaDestino) {
@@ -216,7 +183,7 @@ var controller = {
 			const descripcionOrigen = `${descripcion} (origen)`;
 			const descripcionDestino = `${descripcion} (destino)`;
 
-			const movimientosGuardados = await Movimiento.insertMany([
+			const movimientosGuardados = await MovimientoMio.insertMany([
 				{
 					cuentaId: cuentaOrigenId,
 					origenModelo,
@@ -238,17 +205,17 @@ var controller = {
 			]);
 
 			const ids = movimientosGuardados.map(item => item._id);
-			const movimientos = await Movimiento.find({ _id: { $in: ids } })
+			const movimientos = await MovimientoMio.find({ _id: { $in: ids } })
 				.populate('cuentaId', 'idCuenta nombre categoria')
 				.sort({ debe: -1 });
 
 			return res.status(200).send({ movimientos, _idOrigen: idOrigen });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al guardar el asiento manual', error: err });
+			return res.status(500).send({ message: 'Error al guardar el asiento manual personal', error: err });
 		}
 	},
 
-	updateAsientoManual: async (req, res) => {
+	updateAsientoManualMio: async (req, res) => {
 		try {
 			const idOrigen = req.params.idOrigen;
 			if (!idOrigen || !mongoose.Types.ObjectId.isValid(idOrigen)) {
@@ -282,26 +249,26 @@ var controller = {
 				return res.status(400).send({ message: 'El monto debe ser mayor a 0' });
 			}
 
-			const existentes = await Movimiento.find({ _idOrigen: idOrigen, origenModelo: 'manual' });
+			const existentes = await MovimientoMio.find({ _idOrigen: idOrigen, origenModelo: 'manual' });
 			if (!existentes || existentes.length === 0) {
-				return res.status(404).send({ message: 'No existe asiento manual para el idOrigen indicado' });
+				return res.status(404).send({ message: 'No existe asiento manual personal para el idOrigen indicado' });
 			}
 
 			const [cuentaOrigen, cuentaDestino] = await Promise.all([
-				Cuenta.findById(cuentaOrigenId),
-				Cuenta.findById(cuentaDestinoId)
+				CuentaMia.findById(cuentaOrigenId),
+				CuentaMia.findById(cuentaDestinoId)
 			]);
 
 			if (!cuentaOrigen || !cuentaDestino) {
 				return res.status(404).send({ message: 'La cuenta origen o destino no existe' });
 			}
 
-			await Movimiento.deleteMany({ _idOrigen: idOrigen, origenModelo: 'manual' });
+			await MovimientoMio.deleteMany({ _idOrigen: idOrigen, origenModelo: 'manual' });
 
 			const descripcionOrigen = `${descripcion} (origen)`;
 			const descripcionDestino = `${descripcion} (destino)`;
 
-			const movimientosGuardados = await Movimiento.insertMany([
+			const movimientosGuardados = await MovimientoMio.insertMany([
 				{
 					cuentaId: cuentaOrigenId,
 					origenModelo: 'manual',
@@ -323,31 +290,31 @@ var controller = {
 			]);
 
 			const ids = movimientosGuardados.map(item => item._id);
-			const movimientos = await Movimiento.find({ _id: { $in: ids } })
+			const movimientos = await MovimientoMio.find({ _id: { $in: ids } })
 				.populate('cuentaId', 'idCuenta nombre categoria')
 				.sort({ debe: -1 });
 
 			return res.status(200).send({ movimientos, _idOrigen: idOrigen });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al actualizar el asiento manual', error: err });
+			return res.status(500).send({ message: 'Error al actualizar el asiento manual personal', error: err });
 		}
 	},
 
-	deleteAsientoManual: async (req, res) => {
+	deleteAsientoManualMio: async (req, res) => {
 		try {
 			const idOrigen = req.params.idOrigen;
 			if (!idOrigen || !mongoose.Types.ObjectId.isValid(idOrigen)) {
 				return res.status(400).send({ message: 'idOrigen invalido' });
 			}
 
-			const result = await Movimiento.deleteMany({ _idOrigen: idOrigen, origenModelo: 'manual' });
+			const result = await MovimientoMio.deleteMany({ _idOrigen: idOrigen, origenModelo: 'manual' });
 			if (!result || result.deletedCount === 0) {
-				return res.status(404).send({ message: 'No existe asiento manual para eliminar con el idOrigen indicado' });
+				return res.status(404).send({ message: 'No existe asiento manual personal para eliminar con el idOrigen indicado' });
 			}
 
 			return res.status(200).send({ deletedCount: result.deletedCount, _idOrigen: idOrigen });
 		} catch (err) {
-			return res.status(500).send({ message: 'Error al eliminar el asiento manual', error: err });
+			return res.status(500).send({ message: 'Error al eliminar el asiento manual personal', error: err });
 		}
 	}
 };

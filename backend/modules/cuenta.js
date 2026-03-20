@@ -8,6 +8,7 @@ var CuentaSchema = Schema({
     nombre:      String,
     descripcion: String,
     categoria:   String,
+    liquidez:    { type: Boolean, default: false },
     fechaCreacion: { type: Date, default: Date.now }
 });
 

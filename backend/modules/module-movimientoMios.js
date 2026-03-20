@@ -3,10 +3,10 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 
-const ORIGENES_MODELO_VALIDOS = ['gastofamilias', 'pagos', 'salidascaja', 'adicionbase', 'cierresdiarios', 'deudasproveedores', 'procesossurtido', 'manual', 'cobraalmacen'];
+const ORIGENES_MODELO_VALIDOS = ['gastofamilias', 'pagos', 'salidascaja', 'adicionbase', 'cierresdiarios', 'deudasproveedores', 'deudasmias', 'cobrarmias', 'procesossurtido', 'ingresosmios', 'gastosmios', 'manual'];
 
-var MovimientoSchema = Schema({
-	cuentaId: { type: Schema.Types.ObjectId, ref: 'Cuenta', required: true },
+var MovimientoMioSchema = Schema({
+	cuentaId: { type: Schema.Types.ObjectId, ref: 'CuentaMia', required: true },
 	origenModelo: {
 		type: String,
 		required: true,
@@ -22,4 +22,4 @@ var MovimientoSchema = Schema({
 	fecha: { type: Date, required: true }
 });
 
-module.exports = mongoose.model('Movimiento', MovimientoSchema);
+module.exports = mongoose.model('MovimientoMio', MovimientoMioSchema);

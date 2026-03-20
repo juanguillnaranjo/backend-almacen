@@ -8,6 +8,8 @@ var router = express.Router();
 // rutas para cuentas
 router.get('/getCuentas', controllerCuentas.getCuentas);
 router.post('/createCuenta', controllerCuentas.createCuenta);
+router.put('/updateCuenta/:id', controllerCuentas.updateCuenta);
+router.delete('/deleteCuenta/:id', controllerCuentas.deleteCuenta);
 router.post('/initCuentasDefault', controllerCuentas.initCuentasDefault);
 
 module.exports = router;
