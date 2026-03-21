@@ -92,7 +92,7 @@ var controller = {
                 idCuenta,
                 nombre:      params.nombre,
                 descripcion: params.descripcion,
-                categoria:   params.categoria
+                categoria:   params.categoria,
                 liquidez:    params?.liquidez === true
             });
 

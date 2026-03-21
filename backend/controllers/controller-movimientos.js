@@ -4,7 +4,7 @@ var mongoose = require('mongoose');
 var Movimiento = require('../modules/module-movimientos');
 var Cuenta = require('../modules/cuenta');
 
-const ORIGENES_MODELO_VALIDOS = ['gastofamilias', 'pagos', 'salidascaja', 'adicionbase', 'cierresdiarios', 'deudasproveedores', 'procesossurtido', 'manual'];
+const ORIGENES_MODELO_VALIDOS = ['gastofamilias', 'pagos', 'salidascaja', 'adicionbase', 'cierresdiarios', 'deudasproveedores', 'procesossurtido', 'manual', 'cobraalmacen'];
 
 function normalizarOrigenModelo(origenModelo) {
 	if (origenModelo === undefined || origenModelo === null) return '';
@@ -17,6 +17,25 @@ function esOrigenModeloValido(origenModelo) {
 
 function normalizarTexto(valor) {
 	return String(valor || '').trim();
+}
+
+function normalizarFecha(fecha) {
+	const valor = String(fecha || '').trim();
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+	if (match) {
+		const year = Number(match[1]);
+		const month = Number(match[2]) - 1;
+		const day = Number(match[3]);
+		const date = new Date(year, month, day);
+		if (isNaN(date.getTime())) return null;
+		date.setHours(0, 0, 0, 0);
+		return date;
+	}
+
+	const date = new Date(valor);
+	if (isNaN(date.getTime())) return null;
+	date.setHours(0, 0, 0, 0);
+	return date;
 }
 
 var controller = {
@@ -99,6 +118,11 @@ var controller = {
 				return res.status(400).send({ message: 'Los campos cuenta, descripcion y fecha son obligatorios' });
 			}
 
+			const fecha = normalizarFecha(params.fecha);
+			if (!fecha) {
+				return res.status(400).send({ message: 'fecha invalida. Usa formato YYYY-MM-DD' });
+			}
+
 			if (!esOrigenModeloValido(origenModelo)) {
 				return res.status(400).send({
 					message: `origenModelo invalido. Valores permitidos: ${ORIGENES_MODELO_VALIDOS.join(', ')}`
@@ -129,7 +153,7 @@ var controller = {
 				debe,
 				haber,
 				descripcion: params.descripcion,
-				fecha: params.fecha
+				fecha
 			});
 
 			const movimientoStored = await movimiento.save();
@@ -150,11 +174,15 @@ var controller = {
 			const cuentaOrigenId = normalizarTexto(params.cuentaOrigenId);
 			const cuentaDestinoId = normalizarTexto(params.cuentaDestinoId);
 			const descripcion = normalizarTexto(params.descripcion);
-			const fecha = params.fecha;
+			const fecha = normalizarFecha(params.fecha);
 			const monto = Number(params.monto || 0);
 
-			if (!cuentaOrigenId || !cuentaDestinoId || !descripcion || !fecha) {
+			if (!cuentaOrigenId || !cuentaDestinoId || !descripcion || !params.fecha) {
 				return res.status(400).send({ message: 'Los campos cuentaOrigenId, cuentaDestinoId, descripcion y fecha son obligatorios' });
+			}
+
+			if (!fecha) {
+				return res.status(400).send({ message: 'fecha invalida. Usa formato YYYY-MM-DD' });
 			}
 
 			if (!esOrigenModeloValido(origenModelo)) {
@@ -231,11 +259,15 @@ var controller = {
 			const cuentaOrigenId = normalizarTexto(params.cuentaOrigenId);
 			const cuentaDestinoId = normalizarTexto(params.cuentaDestinoId);
 			const descripcion = normalizarTexto(params.descripcion);
-			const fecha = params.fecha;
+			const fecha = normalizarFecha(params.fecha);
 			const monto = Number(params.monto || 0);
 
-			if (!cuentaOrigenId || !cuentaDestinoId || !descripcion || !fecha) {
+			if (!cuentaOrigenId || !cuentaDestinoId || !descripcion || !params.fecha) {
 				return res.status(400).send({ message: 'Los campos cuentaOrigenId, cuentaDestinoId, descripcion y fecha son obligatorios' });
+			}
+
+			if (!fecha) {
+				return res.status(400).send({ message: 'fecha invalida. Usa formato YYYY-MM-DD' });
 			}
 
 			if (!mongoose.Types.ObjectId.isValid(cuentaOrigenId) || !mongoose.Types.ObjectId.isValid(cuentaDestinoId)) {
