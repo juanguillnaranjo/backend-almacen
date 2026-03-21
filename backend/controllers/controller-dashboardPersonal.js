@@ -44,7 +44,7 @@ function etiquetaTipoCuenta(tipo) {
 function getUltimosMeses(cantidad) {
 	const meses = [];
 	const base = new Date();
-	base.setHours(0, 0, 0, 0);
+	base.setHours(12, 0, 0, 0);
 	base.setDate(1);
 
 	for (let i = cantidad - 1; i >= 0; i--) {

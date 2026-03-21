@@ -321,7 +321,7 @@ function normalizarFecha(fecha) {
 		const day = Number(match[3]);
 		const date = new Date(year, month, day);
 		if (isNaN(date.getTime())) return null;
-		date.setHours(0, 0, 0, 0);
+		date.setHours(12, 0, 0, 0);
 		return date;
 	}
 	return null;
@@ -551,7 +551,7 @@ exports.importarClientesCreditosExternos = async function(req, res) {
 				if (cuentaDebe && cuentaHaber) {
 					const _idImportacion = new mongoose.Types.ObjectId();
 					const fechaHoy = new Date();
-					fechaHoy.setHours(0, 0, 0, 0);
+					fechaHoy.setHours(12, 0, 0, 0);
 					const descripcion = 'Importacion cartera credito almacen - ' + fechaHoy.toISOString().slice(0, 10) + ' | ' + acumuladoPorCliente.size + ' clientes | Total: $' + totalPendienteGlobal.toFixed(2);
 
 					await new Movimiento({

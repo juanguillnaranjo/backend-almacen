@@ -36,19 +36,7 @@ function normalizarTexto(valor) {
 }
 
 function normalizarFecha(fecha) {
-	const valor = String(fecha || '').trim();
-	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
-	if (match) {
-		const year = Number(match[1]);
-		const month = Number(match[2]) - 1;
-		const day = Number(match[3]);
-		const date = new Date(year, month, day);
-		if (isNaN(date.getTime())) return null;
-		date.setHours(0, 0, 0, 0);
-		return date;
-	}
-
-	const date = new Date(valor);
+	const date = new Date(fecha);
 	if (isNaN(date.getTime())) return null;
 	date.setHours(0, 0, 0, 0);
 	return date;
@@ -183,8 +171,7 @@ function construirMovimientosProcesoSurtido(proceso, cuentaSalidaCanonica, cuent
 		throw new Error('No se encontro la cuenta VIATICOS SURTIDO en contabilidad');
 	}
 
-	const fechaProceso = new Date(proceso.fecha);
-	const fechaStr = `${fechaProceso.getFullYear()}-${String(fechaProceso.getMonth() + 1).padStart(2, '0')}-${String(fechaProceso.getDate()).padStart(2, '0')}`;
+	const fechaStr = new Date(proceso.fecha).toISOString().slice(0, 10);
 
 	if (totalFacturas > 0) {
 		const descripcionFacturas = 'Proceso surtido facturas ' + fechaStr;

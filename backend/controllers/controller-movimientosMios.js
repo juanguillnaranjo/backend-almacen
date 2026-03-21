@@ -28,13 +28,13 @@ function normalizarFecha(fecha) {
 		const day = Number(match[3]);
 		const date = new Date(year, month, day);
 		if (isNaN(date.getTime())) return null;
-		date.setHours(0, 0, 0, 0);
+		date.setHours(12, 0, 0, 0);
 		return date;
 	}
 
 	const date = new Date(valor);
 	if (isNaN(date.getTime())) return null;
-	date.setHours(0, 0, 0, 0);
+	date.setHours(12, 0, 0, 0);
 	return date;
 }
 

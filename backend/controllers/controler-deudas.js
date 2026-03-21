@@ -51,19 +51,7 @@ function toNumber(value) {
 }
 
 function normalizarFecha(fecha) {
-	const valor = String(fecha || '').trim();
-	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
-	if (match) {
-		const year = Number(match[1]);
-		const month = Number(match[2]) - 1;
-		const day = Number(match[3]);
-		const date = new Date(year, month, day);
-		if (isNaN(date.getTime())) return null;
-		date.setHours(0, 0, 0, 0);
-		return date;
-	}
-
-	const date = new Date(valor);
+	const date = new Date(fecha);
 	if (isNaN(date.getTime())) return null;
 	date.setHours(0, 0, 0, 0);
 	return date;

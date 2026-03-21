@@ -92,8 +92,7 @@ var controller = {
                 idCuenta,
                 nombre:      params.nombre,
                 descripcion: params.descripcion,
-                categoria:   params.categoria,
-                liquidez:    params?.liquidez === true
+                categoria:   params.categoria
             });
 
             const cuentaStored = await cuenta.save();
@@ -102,100 +101,6 @@ var controller = {
             return res.status(200).send({ cuenta: cuentaConSaldo });
         } catch (err) {
             return res.status(500).send({ message: 'Error al guardar la cuenta', error: err.message || err });
-        }
-    },
-
-    updateCuenta: async (req, res) => {
-        try {
-            const { id } = req.params;
-            const { nombre, descripcion, categoria, liquidez } = req.body || {};
-
-            const cuenta = await Cuenta.findById(id);
-            if (!cuenta) {
-                return res.status(404).send({ message: 'Cuenta no encontrada' });
-            }
-
-            const updateData = {
-                nombre: nombre ? String(nombre).trim() : cuenta.nombre,
-                descripcion: descripcion ? String(descripcion).trim() : '',
-                liquidez: liquidez === true
-            };
-
-            const categoriaLimpia = categoria ? String(categoria).trim() : cuenta.categoria;
-            if (!CATEGORIA_PREFIJOS[categoriaLimpia]) {
-                return res.status(400).send({ message: 'Categoria no valida' });
-            }
-
-            updateData.categoria = categoriaLimpia;
-
-            if (categoriaLimpia !== cuenta.categoria) {
-                updateData.idCuenta = await generarIdCuenta(categoriaLimpia);
-            }
-
-            const cuentaUpdated = await Cuenta.findOneAndUpdate(
-                { _id: id },
-                { $set: updateData },
-                { returnDocument: 'after' }
-            );
-
-            if (!cuentaUpdated) {
-                return res.status(404).send({ message: 'Cuenta no encontrada' });
-            }
-
-            const saldoResult = await Movimiento.aggregate([
-                { $match: { cuentaId: cuentaUpdated._id } },
-                {
-                    $group: {
-                        _id: '$cuentaId',
-                        saldo: {
-                            $sum: {
-                                $subtract: [
-                                    { $ifNull: ['$debe', '$debito'] },
-                                    { $ifNull: ['$haber', '$credito'] }
-                                ]
-                            }
-                        }
-                    }
-                }
-            ]);
-
-            const cuentaObj = cuentaUpdated.toObject();
-            cuentaObj.saldo = Number(saldoResult?.[0]?.saldo || 0);
-
-            return res.status(200).send({ cuenta: cuentaObj });
-        } catch (err) {
-            return res.status(500).send({ message: 'Error al actualizar la cuenta', error: err.message || err });
-        }
-    },
-
-    deleteCuenta: async (req, res) => {
-        try {
-            const { id } = req.params;
-            const { confirmacion } = req.body || {};
-
-            const cuenta = await Cuenta.findById(id);
-            if (!cuenta) {
-                return res.status(404).send({ message: 'Cuenta no encontrada' });
-            }
-
-            const confirmacionEsperada = `ELIMINAR ${cuenta.idCuenta}`;
-            if (confirmacion !== confirmacionEsperada) {
-                return res.status(400).send({
-                    message: `Confirmacion invalida. Debes escribir exactamente: ${confirmacionEsperada}`
-                });
-            }
-
-            const totalMovimientos = await Movimiento.countDocuments({ cuentaId: cuenta._id });
-            if (totalMovimientos > 0) {
-                return res.status(409).send({
-                    message: 'No se puede eliminar la cuenta porque tiene movimientos asociados.'
-                });
-            }
-
-            await Cuenta.findByIdAndDelete(id);
-            return res.status(200).send({ message: 'Cuenta eliminada correctamente' });
-        } catch (err) {
-            return res.status(500).send({ message: 'Error al eliminar la cuenta', error: err.message || err });
         }
     },
 
