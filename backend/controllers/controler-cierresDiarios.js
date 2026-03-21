@@ -16,13 +16,31 @@ const URL_CREDITOS_ABONOS_DIA = process.env.URL_CREDITOS_ABONOS_DIA || 'https://
 const CONFIG_ASIENTOS_CIERRE = [
 	{
 		tipo: 'debe',
-		formula: (c) =>
-			(c.totalVentas || 0) +
-			(c.totalAbonos || 0) -
-			(c.retiroTransferencias || 0),
+		campoMonto: 'totalVentas',
 		descripcion: 'Caja efectivo almacen del dia',
 		cuenta: 'CAJA EFECTIVO ALMACEN',
 		cuentasAlternas: ['CAJA EFECTIVO']
+	},
+	{
+		tipo: 'haber',
+		campoMonto: 'totalVentas',
+		descripcion: 'Ventas diarias',
+		cuenta: 'VENTAS ALMACEN',
+		cuentasAlternas: ['VENTAS']
+	},
+	{
+		tipo: 'debe',
+		campoMonto: 'totalAbonos',
+		descripcion: 'Caja efectivo almacen del dia',
+		cuenta: 'CAJA EFECTIVO ALMACEN',
+		cuentasAlternas: ['CAJA EFECTIVO']
+	},
+	{
+		tipo: 'haber',
+		campoMonto: 'totalAbonos',
+		descripcion: 'Abonos del dia (cuentas por cobrar)',
+		cuenta: 'CUENTAS POR COBRAR',
+		cuentasAlternas: ['CUENTAS X COBRAR', 'CARTERA', 'ABONOS ALMACEN', 'ABONOS']
 	},
 	{
 		tipo: 'debe',
@@ -32,11 +50,25 @@ const CONFIG_ASIENTOS_CIERRE = [
 		cuentasAlternas: ['CUENTA BANCARIA']
 	},
 	{
+		tipo: 'haber',
+		campoMonto: 'retiroTransferencias',
+		descripcion: 'Caja efectivo almacen del dia',
+		cuenta: 'CAJA EFECTIVO ALMACEN',
+		cuentasAlternas: ['CAJA EFECTIVO']
+	},
+	{
 		tipo: 'debe',
 		campoMonto: 'retiroJuan',
 		descripcion: 'Retiro de efectivo de Juan Guillermo',
 		cuenta: 'RETIROS EFECTIVO JUAN',
 		cuentasAlternas: ['RETIRO EFECTIVO JUAN', 'RETIROS JUAN']
+	},
+	{
+		tipo: 'haber',
+		campoMonto: 'retiroJuan',
+		descripcion: 'Caja efectivo almacen del dia',
+		cuenta: 'CAJA EFECTIVO ALMACEN',
+		cuentasAlternas: ['CAJA EFECTIVO']
 	},
 	{
 		tipo: 'debe',
@@ -46,11 +78,25 @@ const CONFIG_ASIENTOS_CIERRE = [
 		cuentasAlternas: ['RETIROS EFECTIVO DONA YOLANDA', 'RETIROS YOLANDA']
 	},
 	{
+		tipo: 'haber',
+		campoMonto: 'retiroYolanda',
+		descripcion: 'Caja efectivo almacen del dia',
+		cuenta: 'CAJA EFECTIVO ALMACEN',
+		cuentasAlternas: ['CAJA EFECTIVO']
+	},
+	{
 		tipo: 'debe',
 		campoMonto: 'totalGastos',
 		descripcion: 'Gastos del almacen',
 		cuenta: 'GASTOS ALMACEN',
 		cuentasAlternas: []
+	},
+	{
+		tipo: 'haber',
+		campoMonto: 'totalGastos',
+		descripcion: 'Caja efectivo almacen del dia',
+		cuenta: 'CAJA EFECTIVO ALMACEN',
+		cuentasAlternas: ['CAJA EFECTIVO']
 	},
 	{
 		tipo: 'debe',
@@ -61,17 +107,10 @@ const CONFIG_ASIENTOS_CIERRE = [
 	},
 	{
 		tipo: 'haber',
-		campoMonto: 'totalVentas',
-		descripcion: 'Ventas diarias',
-		cuenta: 'VENTAS ALMACEN',
-		cuentasAlternas: ['VENTAS']
-	},
-	{
-		tipo: 'haber',
-		campoMonto: 'totalAbonos',
-		descripcion: 'Abonos del dia (cuentas por cobrar)',
-		cuenta: 'CUENTAS POR COBRAR',
-		cuentasAlternas: ['CUENTAS X COBRAR', 'CARTERA', 'ABONOS ALMACEN', 'ABONOS']
+		campoMonto: 'gastosArgemiro',
+		descripcion: 'Caja efectivo almacen del dia',
+		cuenta: 'CAJA EFECTIVO ALMACEN',
+		cuentasAlternas: ['CAJA EFECTIVO']
 	}
 ];
 
