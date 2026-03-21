@@ -1,0 +1,11 @@
+Categoria	Prefijo	Ejemplo ID generado
+Activo Corriente	1.1	1.1.001
+Activo No Corriente	1.2	1.2.001
+Pasivo Corriente	2.1	2.1.001
+Pasivo No Corriente	2.2	2.2.001
+Patrimonio	3.0	3.0.001
+Ingresos Operacionales	4.1	4.1.001
+Otros Ingresos	4.2	4.2.001
+Costos de Ventas	5.1	5.1.001
+Gastos Operacionales	5.2	5.2.001
+Gastos No Operacionales	5.3	5.3.001

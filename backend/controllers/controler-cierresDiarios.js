@@ -19,11 +19,7 @@ const CONFIG_ASIENTOS_CIERRE = [
 		formula: (c) =>
 			(c.totalVentas || 0) +
 			(c.totalAbonos || 0) -
-			(c.retiroTransferencias || 0) -
-			(c.gastosArgemiro || 0) -
-			(c.totalGastos || 0) -
-			(c.retiroJuan || 0) -
-			(c.retiroYolanda || 0),
+			(c.retiroTransferencias || 0),
 		descripcion: 'Caja efectivo almacen del dia',
 		cuenta: 'CAJA EFECTIVO ALMACEN',
 		cuentasAlternas: ['CAJA EFECTIVO']
