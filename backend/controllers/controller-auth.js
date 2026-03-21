@@ -31,6 +31,15 @@ function signToken(user) {
 }
 
 var controller = {
+	bootstrapStatus: async (req, res) => {
+		try {
+			const count = await User.countDocuments();
+			return res.status(200).send({ needsBootstrap: count === 0 });
+		} catch (err) {
+			return res.status(500).send({ message: 'Error al verificar estado inicial', error: err });
+		}
+	},
+
 	register: async (req, res) => {
 		try {
 			const name = String(req.body?.name || '').trim();
