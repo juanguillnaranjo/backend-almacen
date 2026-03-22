@@ -44,8 +44,6 @@ var controller = {
 
     getCuentas: async (req, res) => {
         try {
-            await defaultCuentasService.inicializarCuentasPorDefecto();
-
             const cuentas = await Cuenta.find({}).sort({ idCuenta: 1 });
             if (!cuentas || cuentas.length === 0) return res.status(404).send({ message: 'No hay cuentas para mostrar' });
 

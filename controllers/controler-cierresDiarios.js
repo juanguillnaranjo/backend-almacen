@@ -7,7 +7,7 @@ var Cuenta = require('../modules/cuenta.js');
 var CobroAlmacen = require('../modules/module-cobrarAlmacen.js');
 
 const ORIGEN_MODELO_CIERRES = 'cierresdiarios';
-const URL_CREDITOS_ABONOS_DIA = process.env.URL_CREDITOS_ABONOS_DIA || 'https://almacen.appiorange.com/envioAbonosCrditosClientes.php';
+const URL_CREDITOS_ABONOS_DIA = process.env.URL_CREDITOS_ABONOS_DIA || 'https://almacenv2.appiorange.com/envioAbonosCrditosClientes.php';
 
 // Cada entrada representa un movimiento individual (no un par).
 // tipo: 'debe' | 'haber'
@@ -116,6 +116,32 @@ const CONFIG_ASIENTOS_CIERRE = [
 
 function normalizarFecha(fecha) {
 	const valor = String(fecha || '').trim();
+	if (!valor) return null;
+
+	// Acepta 'YYYY-MM-DD' y también 'YYYY-MM-DD HH:mm:ss'.
+	const isoConHora = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.exec(valor);
+	if (isoConHora) {
+		const year = Number(isoConHora[1]);
+		const month = Number(isoConHora[2]) - 1;
+		const day = Number(isoConHora[3]);
+		const date = new Date(year, month, day);
+		if (isNaN(date.getTime())) return null;
+		date.setHours(0, 0, 0, 0);
+		return date;
+	}
+
+	// Acepta 'DD/MM/YYYY' y 'DD/MM/YYYY HH:mm:ss'.
+	const latam = /^(\d{2})\/(\d{2})\/(\d{4})(?:[T\s].*)?$/.exec(valor);
+	if (latam) {
+		const day = Number(latam[1]);
+		const month = Number(latam[2]) - 1;
+		const year = Number(latam[3]);
+		const date = new Date(year, month, day);
+		if (isNaN(date.getTime())) return null;
+		date.setHours(0, 0, 0, 0);
+		return date;
+	}
+
 	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
 	if (match) {
 		const year = Number(match[1]);
@@ -351,6 +377,47 @@ function extraerMontoAbono(fila) {
 	return Math.max(Number(fila && fila['Valor_Abono'] ? fila['Valor_Abono'] : 0) || 0, 0);
 }
 
+function extraerMontoLineaDevolucion(fila) {
+	const precio = Number(tomarPrimerValor(fila, ['Valor_Venta', 'valor_venta', 'Valor']) || 0) || 0;
+	const cantidad = Number(tomarPrimerValor(fila, ['Cantida_Producto', 'Cantidad_Producto', 'cantidad_producto']) || 0) || 0;
+	if (cantidad > 0) return Math.max(precio * cantidad, 0);
+	return Math.max(precio, 0);
+}
+
+function claveLineaCredito(fila) {
+	return [
+		String(tomarPrimerValor(fila, ['Id_Factura', 'id_factura']) || ''),
+		String(tomarPrimerValor(fila, ['Id_Producto', 'id_producto']) || ''),
+		String(tomarPrimerValor(fila, ['Cantida_Producto', 'Cantidad_Producto', 'cantidad_producto']) || ''),
+		String(tomarPrimerValor(fila, ['Valor_Venta', 'valor_venta']) || ''),
+		String(tomarPrimerValor(fila, ['Fecha_Venta', 'fecha_venta', 'FechaVenta']) || '')
+	].join('|');
+}
+
+function calcularMontoCreditosDevueltos(creditosOriginales, creditosSinDevolucion) {
+	const originales = Array.isArray(creditosOriginales) ? creditosOriginales : [];
+	const sinDevolucion = Array.isArray(creditosSinDevolucion) ? creditosSinDevolucion : [];
+
+	const conteoRestante = new Map();
+	for (const fila of sinDevolucion) {
+		const key = claveLineaCredito(fila);
+		conteoRestante.set(key, (conteoRestante.get(key) || 0) + 1);
+	}
+
+	let totalDevuelto = 0;
+	for (const fila of originales) {
+		const key = claveLineaCredito(fila);
+		const restante = conteoRestante.get(key) || 0;
+		if (restante > 0) {
+			conteoRestante.set(key, restante - 1);
+			continue;
+		}
+		totalDevuelto += extraerMontoLineaCredito(fila);
+	}
+
+	return Math.max(totalDevuelto, 0);
+}
+
 function fechaAClaveLocal(fecha) {
 	const date = normalizarFecha(fecha);
 	if (!date) return '';
@@ -435,6 +502,55 @@ function construirMovimientosCreditosDia(totalCreditosDia, fecha, idOrigen, cuen
 	];
 }
 
+function construirMovimientosDevolucionesDia(totalDevolucionesDia, fecha, idOrigen, cuentasPorNombre) {
+	if (!(totalDevolucionesDia > 0)) return [];
+
+	const cuentaDebe = resolverCuenta(
+		cuentasPorNombre,
+		'DEVOLUCIONES VENTAS CREDITO',
+		[
+			'DEVOLUCION VENTAS CREDITO',
+			'DEVOLUCIONES SOBRE VENTAS CREDITO',
+			'DEVOLUCIONES VENTAS A CREDITO',
+			'DEVOLUCIONES SOBRE VENTAS A CREDITO',
+			'DEVOLUCIONES VENTAS CREDITO ALMACEN',
+			'DEVOLUCIONES VENTAS AL CREDITO'
+		]
+	);
+	const cuentaHaber = resolverCuenta(cuentasPorNombre, 'CUENTAS POR COBRAR', ['CUENTAS X COBRAR', 'CARTERA']);
+
+	if (!cuentaDebe) {
+		throw new Error('No se encontró la cuenta requerida para contabilizar devoluciones del día: DEVOLUCIONES VENTAS CREDITO');
+	}
+
+	if (!cuentaHaber) {
+		throw new Error('No se encontró la cuenta requerida para contabilizar devoluciones del día: CUENTAS POR COBRAR');
+	}
+
+	const fechaEtiqueta = fechaAClaveLocal(fecha);
+
+	return [
+		{
+			cuentaId: cuentaDebe._id,
+			origenModelo: ORIGEN_MODELO_CIERRES,
+			_idOrigen: idOrigen,
+			debe: totalDevolucionesDia,
+			haber: 0,
+			descripcion: `Devoluciones de ventas a crédito del día - cierre ${fechaEtiqueta}`,
+			fecha
+		},
+		{
+			cuentaId: cuentaHaber._id,
+			origenModelo: ORIGEN_MODELO_CIERRES,
+			_idOrigen: idOrigen,
+			debe: 0,
+			haber: totalDevolucionesDia,
+			descripcion: `Devoluciones de ventas a crédito del día - cierre ${fechaEtiqueta}`,
+			fecha
+		}
+	];
+}
+
 async function sincronizarCreditosAbonosDiaEnCobroAlmacen(fechaObjetivo, opciones) {
 	const cuentasPorNombre = opciones && opciones.cuentasPorNombre ? opciones.cuentasPorNombre : new Map();
 	const idOrigenMovimiento = opciones && opciones.idOrigenMovimiento ? opciones.idOrigenMovimiento : null;
@@ -487,6 +603,7 @@ async function sincronizarCreditosAbonosDiaEnCobroAlmacen(fechaObjetivo, opcione
 	let clientesAfectados = 0;
 	let productosDevueltosAplicados = 0;
 	let totalCreditosDiaContabilizados = 0;
+	let totalDevolucionesDiaContabilizadas = 0;
 
 	for (const idCliente of idsCliente) {
 		const creditosClienteDia = mapaCreditos.get(idCliente) || [];
@@ -494,6 +611,10 @@ async function sincronizarCreditosAbonosDiaEnCobroAlmacen(fechaObjetivo, opcione
 		const devolucionesClienteDia = mapaDevoluciones.get(idCliente) || [];
 		const creditosClienteDiaSinDevolucion = aplicarDevolucionesProductos(creditosClienteDia, devolucionesClienteDia);
 		totalCreditosDiaContabilizados += creditosClienteDiaSinDevolucion.reduce((acc, item) => acc + extraerMontoLineaCredito(item), 0);
+
+		const montoDevueltoPorDiferencia = calcularMontoCreditosDevueltos(creditosClienteDia, creditosClienteDiaSinDevolucion);
+		const montoDevueltoDirecto = devolucionesClienteDia.reduce((acc, item) => acc + extraerMontoLineaDevolucion(item), 0);
+		totalDevolucionesDiaContabilizadas += Math.max(montoDevueltoPorDiferencia, montoDevueltoDirecto, 0);
 
 		const cliente = await CobroAlmacen
 			.findOne({ idClienteExterno: idCliente })
@@ -574,17 +695,25 @@ async function sincronizarCreditosAbonosDiaEnCobroAlmacen(fechaObjetivo, opcione
 	}
 
 	let movimientosContablesGenerados = 0;
-	if (idOrigenMovimiento && totalCreditosDiaContabilizados > 0) {
+	if (idOrigenMovimiento && (totalCreditosDiaContabilizados > 0 || totalDevolucionesDiaContabilizadas > 0)) {
+		const fechaMovimiento = normalizarFecha(fechaObjetivo) || fechaObjetivo;
 		const movimientosCreditosDia = construirMovimientosCreditosDia(
 			totalCreditosDiaContabilizados,
-			normalizarFecha(fechaObjetivo) || fechaObjetivo,
+			fechaMovimiento,
+			idOrigenMovimiento,
+			cuentasPorNombre
+		);
+		const movimientosDevolucionesDia = construirMovimientosDevolucionesDia(
+			totalDevolucionesDiaContabilizadas,
+			fechaMovimiento,
 			idOrigenMovimiento,
 			cuentasPorNombre
 		);
 
-		if (movimientosCreditosDia.length > 0) {
-			await Movimiento.insertMany(movimientosCreditosDia);
-			movimientosContablesGenerados = movimientosCreditosDia.length;
+		const movimientosDia = movimientosCreditosDia.concat(movimientosDevolucionesDia);
+		if (movimientosDia.length > 0) {
+			await Movimiento.insertMany(movimientosDia);
+			movimientosContablesGenerados = movimientosDia.length;
 		}
 	}
 
@@ -595,6 +724,7 @@ async function sincronizarCreditosAbonosDiaEnCobroAlmacen(fechaObjetivo, opcione
 		abonosDia: abonosDia.length,
 		devolucionesDia: devolucionesDia.length,
 		totalCreditosDiaContabilizados,
+		totalDevolucionesDiaContabilizadas,
 		movimientosContablesGenerados,
 		productosDevueltosAplicados,
 		clientesAfectados

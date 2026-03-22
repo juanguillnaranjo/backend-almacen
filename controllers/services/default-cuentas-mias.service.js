@@ -53,13 +53,6 @@ const CUENTAS_MIAS_POR_DEFECTO = [
 		liquidez: false
 	},
 	{
-		idCuenta: 'P3.0.003',
-		nombre: 'CAPITAL INICIAL',
-		descripcion: 'Capital inicial para registro de los activos caja y bancos',
-		categoria: 'Patrimonio',
-		liquidez: false
-	},
-	{
 		idCuenta: 'P4.2.001',
 		nombre: 'HONORARIOS ALCALDIA',
 		descripcion: 'Ingresos por honorarios de sistemas de la alcaldia',

@@ -2,7 +2,6 @@
 
 var CuentaMia = require('../modules/module-cuentasMias');
 var MovimientoMio = require('../modules/module-movimientoMios');
-var defaultCuentasMiasService = require('./services/default-cuentas-mias.service');
 
 // Plan de cuentas personal — misma jerarquía que la del almacén,
 // prefijo 'P' para distinguir: P1.1.001 (personal) vs 1.1.001 (almacén)
@@ -45,8 +44,6 @@ var controller = {
 
     getCuentasMias: async (req, res) => {
         try {
-            await defaultCuentasMiasService.inicializarCuentasMiasPorDefecto();
-
             const cuentas = await CuentaMia.find({}).sort({ idCuenta: 1 });
             if (!cuentas || cuentas.length === 0) {
                 return res.status(404).send({ message: 'No hay cuentas personales para mostrar' });
