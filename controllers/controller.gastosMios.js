@@ -295,7 +295,7 @@ class GastosMiosController {
           cuentaDebeId,
           cuentaHaberId
         },
-        { new: true }
+        { returnDocument: 'after' }
       )
       .populate('cuentaDebeId', 'idCuenta nombre categoria')
       .populate('cuentaHaberId', 'idCuenta nombre categoria');

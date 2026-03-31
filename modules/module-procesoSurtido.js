@@ -7,13 +7,15 @@ var FacturaContadoSchema = Schema({
 	numeroFactura: { type: String, required: true, trim: true },
 	proveedor: { type: String, default: '', trim: true },
 	descripcion: { type: String, default: '', trim: true },
-	monto: { type: Number, required: true, min: 0.01 }
+	monto: { type: Number, required: true, min: 0.01 },
+	cuentaSalida: { type: String, required: true, trim: true }
 }, { _id: true });
 
 var ViaticoSchema = Schema({
 	concepto: { type: String, required: true, trim: true },
 	descripcion: { type: String, default: '', trim: true },
-	monto: { type: Number, required: true, min: 0.01 }
+	monto: { type: Number, required: true, min: 0.01 },
+	cuentaSalida: { type: String, required: true, trim: true }
 }, { _id: true });
 
 var ProcesoSurtidoSchema = Schema({

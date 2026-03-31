@@ -8,7 +8,7 @@ var defaultCuentasService = require('./services/default-cuentas.service');
 var defaultCuentasMiasService = require('./services/default-cuentas-mias.service');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_proyecto_almacen_2026';
-const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
+const JWT_EXPIRES = process.env.JWT_EXPIRES || '24h';
 
 function sanitizeUser(user) {
 	return {

@@ -7,7 +7,7 @@ var Cuenta = require('../modules/cuenta.js');
 var CobroAlmacen = require('../modules/module-cobrarAlmacen.js');
 
 const ORIGEN_MODELO_CIERRES = 'cierresdiarios';
-const URL_CREDITOS_ABONOS_DIA = process.env.URL_CREDITOS_ABONOS_DIA || 'https://almacen.appiorange.com/envioAbonosCrditosClientes.php';
+const URL_CREDITOS_ABONOS_DIA = process.env.URL_CREDITOS_ABONOS_DIA || 'https://almacenv2.appiorange.com/envioAbonosCrditosClientes.php';
 
 // Cada entrada representa un movimiento individual (no un par).
 // tipo: 'debe' | 'haber'

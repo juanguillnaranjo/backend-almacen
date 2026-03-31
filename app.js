@@ -14,13 +14,25 @@ var routesCierresDiarios = require('./routes/routes-cierresDiarios.js');
 var routesDeudas = require('./routes/routes-deudas.js');
 var routesProcesoSurtido = require('./routes/routes-procesoSurtido.js');
 var routesCuentasMias = require('./routes/routes-cuentasMias.js');
+var routesCuentasOrange = require('./routes/routes-cuentasOrange.js');
+var routesMovimientosOrange = require('./routes/routes-movimientosOrange.js');
+var routesCierresOrange = require('./routes/routes-cierresOrange.js');
+var routesDeudasOrange = require('./routes/routes-deudasOrange.js');
+var routesGastosOrange = require('./routes/routes-gastosOrange.js');
+var routesRetirosOrange = require('./routes/routes-retirosOrange.js');
+var routesInventarioOrange = require('./routes/routes-inventarioOrange.js');
+var routesPosOrange = require('./routes/routes-posOrange.js');
 var routesMovimientosMios = require('./routes/routes-movimientosMios.js');
 var routesDeudasMias = require('./routes/routes-deudasMias.js');
 var routesCobrarMias = require('./routes/routes-cobrarMias.js');
 var routesCobrarAlmacen = require('./routes/routes-cobrarAlmacen.js');
 var routesIngresosMios = require('./routes/routes-ingresosMios.js');
 var routesGastosMios = require('./routes/routes-gastosMios.js');
+var routesGastosFamiliares = require('./routes/routes-gastosFamiliares.js');
+var routesDeudasFamiliares = require('./routes/routes-deudasFamiliares.js');
 var routesDashboardPersonal = require('./routes/routes-dashboardPersonal.js');
+var routesInsumos = require('./routes/routes-insumos.js');
+var routesVentas = require('./routes/routes-ventas.js');
 var mdAuth = require('./middlewares/authenticated');
 
 //moddlewares
@@ -44,13 +56,25 @@ app.use('/api', routesCierresDiarios);
 app.use('/api', routesDeudas);
 app.use('/api', routesProcesoSurtido);
 app.use('/api', routesCuentasMias);
+app.use('/api', routesCuentasOrange);
+app.use('/api', routesMovimientosOrange);
+app.use('/api', routesCierresOrange);
+app.use('/api', routesDeudasOrange);
+app.use('/api', routesGastosOrange);
+app.use('/api', routesRetirosOrange);
+app.use('/api', routesInventarioOrange);
+app.use('/api', routesPosOrange);
 app.use('/api', routesMovimientosMios);
 app.use('/api', routesDeudasMias);
 app.use('/api', routesCobrarMias);
 app.use('/api', routesCobrarAlmacen);
 app.use('/api', routesIngresosMios);
 app.use('/api', routesGastosMios);
+app.use('/api', routesGastosFamiliares);
+app.use('/api', routesDeudasFamiliares);
 app.use('/api', routesDashboardPersonal);
+app.use('/api', routesInsumos);
+app.use('/api', routesVentas);
 
 
 //exportar modulo
