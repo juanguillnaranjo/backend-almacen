@@ -53,6 +53,13 @@ const CUENTAS_MIAS_POR_DEFECTO = [
 		liquidez: false
 	},
 	{
+		idCuenta: 'P3.0.003',
+		nombre: 'CAPITAL INICIAL',
+		descripcion: 'Capital inicial para registro de los activos caja y bancos',
+		categoria: 'Patrimonio',
+		liquidez: false
+	},
+	{
 		idCuenta: 'P4.2.001',
 		nombre: 'HONORARIOS ALCALDIA',
 		descripcion: 'Ingresos por honorarios de sistemas de la alcaldia',
@@ -83,12 +90,7 @@ const CUENTAS_MIAS_POR_DEFECTO = [
 ];
 
 async function upsertCuentaMiaPorDefecto(def) {
-	let cuenta = await CuentaMia.findOne({
-		$or: [
-			{ idCuenta: def.idCuenta },
-			{ nombre: def.nombre }
-		]
-	});
+	let cuenta = await CuentaMia.findOne({ idCuenta: def.idCuenta });
 
 	if (!cuenta) {
 		const cuentaCreada = await CuentaMia.create(def);
@@ -96,7 +98,6 @@ async function upsertCuentaMiaPorDefecto(def) {
 	}
 
 	const cambios = {};
-	if (cuenta.idCuenta !== def.idCuenta) cambios.idCuenta = def.idCuenta;
 	if (cuenta.nombre !== def.nombre) cambios.nombre = def.nombre;
 	if (cuenta.descripcion !== def.descripcion) cambios.descripcion = def.descripcion;
 	if (cuenta.categoria !== def.categoria) cambios.categoria = def.categoria;

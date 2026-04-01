@@ -5,8 +5,8 @@ var CuentaOrange = require('../../modules/module-cuentasOrange');
 const CUENTAS_ORANGE_POR_DEFECTO = [
 	{
 		idCuenta: 'O1.1.001',
-		nombre: 'CAJA EFECTIVO ORANGE',
-		descripcion: 'Caja principal de efectivo del negocio Orange',
+		nombre: 'CAJA ORANGE',
+		descripcion: 'Caja principal de efectivo de Orange',
 		categoria: 'Activo Corriente',
 		liquidez: true
 	},
@@ -19,15 +19,15 @@ const CUENTAS_ORANGE_POR_DEFECTO = [
 	},
 	{
 		idCuenta: 'O1.1.003',
-		nombre: 'CAJA NEGOCIO ORANGE',
-		descripcion: 'Caja del negocio Orange',
+		nombre: 'RETIRO EFECTIVO',
+		descripcion: 'Retiros de efectivo de caja Orange',
 		categoria: 'Activo Corriente',
 		liquidez: true
 	},
 	{
 		idCuenta: 'O1.1.004',
-		nombre: 'CUENTAS POR COBRAR ORANGE',
-		descripcion: 'Registro de cuentas por cobrar del negocio Orange',
+		nombre: 'COMPRAS / INVENTARIO',
+		descripcion: 'Inventario y compras a proveedores de Orange',
 		categoria: 'Activo Corriente',
 		liquidez: false
 	},
@@ -40,8 +40,8 @@ const CUENTAS_ORANGE_POR_DEFECTO = [
 	},
 	{
 		idCuenta: 'O2.1.001',
-		nombre: 'DEUDAS PROVEEDORES ORANGE',
-		descripcion: 'Registro de deudas a proveedores del negocio Orange',
+		nombre: 'DEUDAS ORANGE',
+		descripcion: 'Registro de deudas con proveedores de Orange',
 		categoria: 'Pasivo Corriente',
 		liquidez: false
 	},
@@ -54,15 +54,29 @@ const CUENTAS_ORANGE_POR_DEFECTO = [
 	},
 	{
 		idCuenta: 'O3.0.001',
-		nombre: 'CAPITAL ORANGE',
-		descripcion: 'Capital aportado al negocio Orange',
+		nombre: 'GASTOS NO ORANGE',
+		descripcion: 'Gastos no operativos o externos asumidos por Orange',
 		categoria: 'Patrimonio',
 		liquidez: false
 	},
 	{
 		idCuenta: 'O3.0.002',
-		nombre: 'UTILIDADES ACUMULADAS ORANGE',
-		descripcion: 'Utilidades acumuladas del negocio Orange',
+		nombre: 'GASTOS FAMILIARES (HOGAR)',
+		descripcion: 'Registro de gastos familiares pagados desde Orange',
+		categoria: 'Patrimonio',
+		liquidez: false
+	},
+	{
+		idCuenta: 'O3.0.003',
+		nombre: 'CAPITAL INICIAL',
+		descripcion: 'Dinero Inicial contable',
+		categoria: 'Patrimonio',
+		liquidez: false
+	},
+	{
+		idCuenta: 'O3.0.004',
+		nombre: 'AJUSTE DE APERTURA DEUDAS PROVEEDORES',
+		descripcion: 'Cuenta para ajuste de apertura, va contra prveedores de deudas existentes',
 		categoria: 'Patrimonio',
 		liquidez: false
 	},
@@ -75,8 +89,15 @@ const CUENTAS_ORANGE_POR_DEFECTO = [
 	},
 	{
 		idCuenta: 'O4.1.002',
-		nombre: 'VENTAS A CREDITO ORANGE',
-		descripcion: 'Ingresos por ventas a crédito del negocio Orange',
+		nombre: 'VENTAS DOMICILIO ORANGE',
+		descripcion: 'Ingresos por ventas a domicilio del negocio Orange',
+		categoria: 'Ingresos Operacionales',
+		liquidez: false
+	},
+	{
+		idCuenta: 'O4.1.003',
+		nombre: 'VENTAS PARA LLEVAR ORANGE',
+		descripcion: 'Ingresos por ventas para llevar del negocio Orange',
 		categoria: 'Ingresos Operacionales',
 		liquidez: false
 	},
@@ -89,20 +110,15 @@ const CUENTAS_ORANGE_POR_DEFECTO = [
 	},
 	{
 		idCuenta: 'O5.2.001',
-		nombre: 'GASTOS OPERACIONALES ORANGE',
-		descripcion: 'Gastos operacionales del negocio Orange',
+		nombre: 'GASTOS ORANGE',
+		descripcion: 'Gastos operacionales generales de Orange',
 		categoria: 'Gastos Operacionales',
 		liquidez: false
 	}
 ];
 
 async function upsertCuentaOrangePorDefecto(def) {
-	let cuenta = await CuentaOrange.findOne({
-		$or: [
-			{ idCuenta: def.idCuenta },
-			{ nombre: def.nombre }
-		]
-	});
+	let cuenta = await CuentaOrange.findOne({ idCuenta: def.idCuenta });
 
 	if (!cuenta) {
 		const cuentaCreada = await CuentaOrange.create(def);
@@ -110,7 +126,6 @@ async function upsertCuentaOrangePorDefecto(def) {
 	}
 
 	const cambios = {};
-	if (cuenta.idCuenta !== def.idCuenta) cambios.idCuenta = def.idCuenta;
 	if (cuenta.nombre !== def.nombre) cambios.nombre = def.nombre;
 	if (cuenta.descripcion !== def.descripcion) cambios.descripcion = def.descripcion;
 	if (cuenta.categoria !== def.categoria) cambios.categoria = def.categoria;

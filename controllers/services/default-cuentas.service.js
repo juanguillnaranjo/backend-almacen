@@ -88,6 +88,13 @@ const CUENTAS_POR_DEFECTO = [
 		liquidez: false
 	},
 	{
+		idCuenta: '4.1.003',
+		nombre: 'DEVOLUCIONES VENTAS CREDITO',
+		descripcion: 'Registro de las devoluciones de ventas a credito',
+		categoria: 'Ingresos Operacionales',
+		liquidez: false
+	},
+	{
 		idCuenta: '5.2.001',
 		nombre: 'GASTOS ALMACEN',
 		descripcion: 'Gastos operacionales del almacen',
@@ -140,12 +147,7 @@ async function crearCuentasPorDefectoSiVacia() {
 }
 
 async function upsertCuentaPorDefecto(def) {
-	let cuenta = await Cuenta.findOne({
-		$or: [
-			{ idCuenta: def.idCuenta },
-			{ nombre: def.nombre }
-		]
-	});
+	let cuenta = await Cuenta.findOne({ idCuenta: def.idCuenta });
 
 	if (!cuenta) {
 		const cuentaCreada = await Cuenta.create(def);
@@ -153,7 +155,6 @@ async function upsertCuentaPorDefecto(def) {
 	}
 
 	const cambios = {};
-	if (cuenta.idCuenta !== def.idCuenta) cambios.idCuenta = def.idCuenta;
 	if (cuenta.nombre !== def.nombre) cambios.nombre = def.nombre;
 	if (cuenta.descripcion !== def.descripcion) cambios.descripcion = def.descripcion;
 	if (cuenta.categoria !== def.categoria) cambios.categoria = def.categoria;

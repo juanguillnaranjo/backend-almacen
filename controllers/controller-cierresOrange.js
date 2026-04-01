@@ -289,6 +289,35 @@ var controller = {
 		}
 	},
 
+	deleteCierreOrangeByFecha: async (req, res) => {
+		try {
+			const fechaNormalizada = normalizarFecha(req.params.fecha);
+			if (!fechaNormalizada) {
+				return res.status(400).send({ message: 'Fecha invalida. Usa formato YYYY-MM-DD' });
+			}
+
+			const cierre = await CierreOrange.findOne({ fecha: fechaNormalizada });
+			if (!cierre) {
+				return res.status(404).send({ message: 'No existe cierre Orange para esa fecha' });
+			}
+
+			const movimientosEliminados = await MovimientoOrange.deleteMany({
+				origenModelo: ORIGEN_MODELO_CIERRES_ORANGE,
+				_idOrigen: cierre._id
+			});
+
+			await CierreOrange.deleteOne({ _id: cierre._id });
+
+			return res.status(200).send({
+				message: 'Cierre Orange y movimientos contables eliminados correctamente',
+				cierreEliminadoId: cierre._id,
+				movimientosEliminados: movimientosEliminados.deletedCount || 0
+			});
+		} catch (err) {
+			return res.status(500).send({ message: 'Error al eliminar cierre Orange', error: err });
+		}
+	},
+
 	upsertCierreOrange: async (req, res) => {
 		try {
 			const validacion = construirDatosCierreDesdeParams(req.body || {});

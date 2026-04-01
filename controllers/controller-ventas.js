@@ -39,6 +39,37 @@ function parseLocalDate(value, endOfDay = false) {
 	return date;
 }
 
+function getNowInBogota() {
+	// Mantiene consistencia con el día/hora operativa de Colombia (UTC-5)
+	const nowBogotaText = new Date().toLocaleString('sv-SE', { timeZone: 'America/Bogota' });
+	const normalized = nowBogotaText.replace(' ', 'T');
+	const date = new Date(normalized);
+	return isNaN(date.getTime()) ? new Date() : date;
+}
+
+function resolveClientOrBogotaNow(clientDateTime) {
+	const fromClient = new Date(String(clientDateTime || '').trim());
+	if (!isNaN(fromClient.getTime())) return fromClient;
+	return getNowInBogota();
+}
+
+function resolveClientLocalText(clientDateTime) {
+	const raw = String(clientDateTime || '').trim();
+	if (!raw) return '';
+	const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/.exec(raw);
+	if (match) return match[1].replace('T', ' ');
+	const parsed = new Date(raw);
+	if (isNaN(parsed.getTime())) return '';
+	const pad2 = (n) => String(n).padStart(2, '0');
+	const y = parsed.getFullYear();
+	const m = pad2(parsed.getMonth() + 1);
+	const d = pad2(parsed.getDate());
+	const hh = pad2(parsed.getHours());
+	const mm = pad2(parsed.getMinutes());
+	const ss = pad2(parsed.getSeconds());
+	return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+}
+
 function buildVentaCuentaLabel(venta) {
 	if (!venta) return 'Sin cuenta';
 	if (venta.tipo === 'mesa') {
@@ -176,13 +207,20 @@ function buildCuentaTicket(venta) {
 
 // Crear una nueva venta
 exports.crearVenta = async (req, res) => {
-	const { tipo, numero_mesa, cliente_nombre, cliente_telefono, cliente_direccion, usuario_nombre } = req.body;
+	const { tipo, numero_mesa, cliente_nombre, cliente_telefono, cliente_direccion, usuario_nombre, fechaHoraCliente } = req.body;
+	const role = String(req.user?.role || '');
 
 	if (!tipo || !['mesa', 'domicilio', 'llevar'].includes(tipo)) {
 		return res.status(400).json({ success: false, message: 'Tipo de venta inválido' });
 	}
 
+	if (role === 'orange_pos' && tipo === 'domicilio') {
+		return res.status(403).json({ success: false, message: 'Tu rol no puede crear ventas a domicilio' });
+	}
+
 	try {
+		const nowVenta = resolveClientOrBogotaNow(fechaHoraCliente);
+		const nowVentaLocal = resolveClientLocalText(fechaHoraCliente);
 		const venta = new Venta({
 			tipo,
 			numero_mesa: tipo === 'mesa' ? numero_mesa : undefined,
@@ -193,7 +231,11 @@ exports.crearVenta = async (req, res) => {
 			items: [],
 			subtotal: 0,
 			total: 0,
-			estado: 'abierta'
+			estado: 'abierta',
+			fecha_apertura: nowVenta,
+			fecha_apertura_local: nowVentaLocal,
+			createdAt: nowVenta,
+			updatedAt: nowVenta
 		});
 
 		await venta.save();
@@ -232,15 +274,16 @@ exports.getVentas = async (req, res) => {
 		if (estado) filtros.estado = estado;
 		if (tipo) filtros.tipo = tipo;
 		if (fecha_desde || fecha_hasta) {
-			filtros.fecha_apertura = {};
-			if (fecha_desde) filtros.fecha_apertura.$gte = new Date(fecha_desde);
-			if (fecha_hasta) filtros.fecha_apertura.$lte = new Date(fecha_hasta);
+			const campoFecha = estado === 'cerrada' ? 'fecha_cierre' : 'fecha_apertura';
+			filtros[campoFecha] = {};
+			if (fecha_desde) filtros[campoFecha].$gte = parseLocalDate(fecha_desde, false);
+			if (fecha_hasta) filtros[campoFecha].$lte = parseLocalDate(fecha_hasta, true);
 		}
 
 		const skip = (parseInt(pagina) - 1) * parseInt(limite);
 		const ventas = await Venta.find(filtros)
 			.populate('items.productoId', 'codigo sabor precioVenta costoUnitario tipoProducto')
-			.sort({ fecha_apertura: -1 })
+			.sort({ fecha_cierre: -1, fecha_apertura: -1 })
 			.limit(parseInt(limite))
 			.skip(skip);
 
@@ -506,6 +549,12 @@ exports.actualizarItem = async (req, res) => {
 			return res.status(400).json({ success: false, message: 'Índice de item inválido' });
 		}
 
+		const role = String(req.user?.role || '');
+		const cantidadActual = Number(venta.items[idx].cantidad || 0);
+		if (role === 'orange_pos' && cant < cantidadActual) {
+			return res.status(403).json({ success: false, message: 'Tu rol no tiene permiso para restar cantidad' });
+		}
+
 		venta.items[idx].cantidad = cant;
 		venta.items[idx].subtotal = venta.items[idx].precioUnitario * cant;
 
@@ -618,13 +667,18 @@ exports.aplicarDescuento = async (req, res) => {
 // Cerrar venta
 exports.cerrarVenta = async (req, res) => {
 	const { ventaId } = req.params;
-	const { metodo_pago, monto_efectivo, monto_tarjeta } = req.body;
+	const { metodo_pago, monto_efectivo, monto_tarjeta, fechaHoraCliente } = req.body;
+	const role = String(req.user?.role || '');
 
 	if (!mongoose.Types.ObjectId.isValid(ventaId)) {
 		return res.status(400).json({ success: false, message: 'ID de venta inválido' });
 	}
 
 	try {
+		if (role === 'orange_pos' && String(metodo_pago || 'efectivo') !== 'efectivo') {
+			return res.status(403).json({ success: false, message: 'Tu rol solo puede cerrar ventas en efectivo' });
+		}
+
 		const venta = await Venta.findById(ventaId);
 		if (!venta) {
 			return res.status(404).json({ success: false, message: 'Venta no encontrada' });
@@ -643,9 +697,12 @@ exports.cerrarVenta = async (req, res) => {
 			venta.cambio = venta.monto_efectivo - venta.total;
 		}
 
+		const nowVenta = resolveClientOrBogotaNow(fechaHoraCliente);
+		const nowVentaLocal = resolveClientLocalText(fechaHoraCliente);
 		venta.estado = 'cerrada';
-		venta.fecha_cierre = new Date();
-		venta.updatedAt = new Date();
+		venta.fecha_cierre = nowVenta;
+		venta.fecha_cierre_local = nowVentaLocal;
+		venta.updatedAt = nowVenta;
 
 		await venta.save();
 
@@ -674,7 +731,7 @@ exports.cancelarVenta = async (req, res) => {
 		}
 
 		venta.estado = 'cancelada';
-		venta.updatedAt = new Date();
+		venta.updatedAt = getNowInBogota();
 
 		await venta.save();
 
@@ -731,12 +788,17 @@ exports.reabrirVenta = async (req, res) => {
 exports.reasignarVenta = async (req, res) => {
 	const { ventaId } = req.params;
 	const { tipo, numero_mesa, cliente_nombre, cliente_telefono, cliente_direccion } = req.body;
+	const role = String(req.user?.role || '');
 
 	if (!mongoose.Types.ObjectId.isValid(ventaId)) {
 		return res.status(400).json({ success: false, message: 'ID de venta inválido' });
 	}
 	if (!tipo || !['mesa', 'domicilio', 'llevar'].includes(tipo)) {
 		return res.status(400).json({ success: false, message: 'Tipo de venta inválido' });
+	}
+
+	if (role === 'orange_pos') {
+		return res.status(403).json({ success: false, message: 'Tu rol no tiene permiso para reasignar pedidos' });
 	}
 
 	try {

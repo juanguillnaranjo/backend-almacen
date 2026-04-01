@@ -105,6 +105,40 @@ function normalizarFecha(fecha) {
 	return date;
 }
 
+function construirFiltroFechaConsulta(query) {
+	const fechaDesdeTexto = normalizarTexto(query && query.fechaDesde);
+	const fechaHastaTexto = normalizarTexto(query && query.fechaHasta);
+	const fechaDesde = fechaDesdeTexto ? normalizarFecha(fechaDesdeTexto) : null;
+	const fechaHasta = fechaHastaTexto ? normalizarFecha(fechaHastaTexto) : null;
+
+	if (fechaDesdeTexto && !fechaDesde) {
+		return { ok: false, status: 400, message: 'fechaDesde invalida. Usa formato YYYY-MM-DD' };
+	}
+
+	if (fechaHastaTexto && !fechaHasta) {
+		return { ok: false, status: 400, message: 'fechaHasta invalida. Usa formato YYYY-MM-DD' };
+	}
+
+	if (fechaDesde && fechaHasta && fechaDesde.getTime() > fechaHasta.getTime()) {
+		return { ok: false, status: 400, message: 'fechaDesde no puede ser mayor que fechaHasta' };
+	}
+
+	const filtro = {};
+	if (fechaDesde || fechaHasta) {
+		filtro.fecha = {};
+		if (fechaDesde) {
+			filtro.fecha.$gte = fechaDesde;
+		}
+		if (fechaHasta) {
+			const finDia = new Date(fechaHasta);
+			finDia.setHours(23, 59, 59, 999);
+			filtro.fecha.$lte = finDia;
+		}
+	}
+
+	return { ok: true, filtro };
+}
+
 async function asegurarTiposBase() {
 	for (const claseItem of CATALOGO_GASTOS_BASE) {
 		const clase = normalizarCatalogo(claseItem.clase);
@@ -178,34 +212,24 @@ async function obtenerCuentaOrangePorId(id) {
 	return await CuentaOrange.findById(id).select('_id idCuenta nombre categoria liquidez');
 }
 
-async function validarCuentasAsiento(cuentaDebeId, cuentaHaberId) {
-	if (!cuentaDebeId || !cuentaHaberId) {
-		return { ok: false, status: 400, message: 'Debe indicar cuentaDebeId y cuentaHaberId' };
-	}
+const ID_CUENTA_HABER_GASTO = 'O1.1.001';
 
-	if (String(cuentaDebeId) === String(cuentaHaberId)) {
-		return { ok: false, status: 400, message: 'cuentaDebeId y cuentaHaberId deben ser diferentes' };
-	}
+function determinarIdCuentaDebe(claseGasto, subclaseGasto) {
+	const clase = normalizarCatalogo(claseGasto);
+	const subclase = normalizarCatalogo(subclaseGasto);
+	if (subclase === 'materia prima') return 'O1.1.004';
+	if (clase === 'gastos no orange') return 'O3.0.001';
+	return 'O5.2.001';
+}
 
+async function resolverCuentasAsiento(claseGasto, subclaseGasto) {
+	const idCuentaDebe = determinarIdCuentaDebe(claseGasto, subclaseGasto);
 	const [cuentaDebe, cuentaHaber] = await Promise.all([
-		obtenerCuentaOrangePorId(cuentaDebeId),
-		obtenerCuentaOrangePorId(cuentaHaberId)
+		CuentaOrange.findOne({ idCuenta: idCuentaDebe }).select('_id idCuenta nombre categoria liquidez'),
+		CuentaOrange.findOne({ idCuenta: ID_CUENTA_HABER_GASTO }).select('_id idCuenta nombre categoria liquidez')
 	]);
-
-	if (!cuentaDebe) return { ok: false, status: 400, message: 'La cuentaDebeId no existe en Orange' };
-	if (!cuentaHaber) return { ok: false, status: 400, message: 'La cuentaHaberId no existe en Orange' };
-
-	const categoriaDebe = normalizarTexto(cuentaDebe.categoria).toUpperCase();
-	if (!categoriaDebe.startsWith('GASTO') && !categoriaDebe.startsWith('COSTO')) {
-		return { ok: false, status: 400, message: 'La cuentaDebeId debe ser una cuenta de GASTO o COSTO' };
-	}
-
-	const categoriaHaber = normalizarTexto(cuentaHaber.categoria).toUpperCase();
-	const esActivoLiquido = categoriaHaber.startsWith('ACTIVO') && !!cuentaHaber.liquidez;
-	if (!esActivoLiquido) {
-		return { ok: false, status: 400, message: 'La cuentaHaberId debe ser una cuenta de ACTIVO con liquidez' };
-	}
-
+	if (!cuentaDebe) return { ok: false, message: `Cuenta ${idCuentaDebe} no encontrada en el plan de cuentas Orange` };
+	if (!cuentaHaber) return { ok: false, message: `Cuenta ${ID_CUENTA_HABER_GASTO} (Caja Orange) no encontrada en el plan de cuentas` };
 	return { ok: true, cuentaDebe, cuentaHaber };
 }
 
@@ -334,7 +358,12 @@ var controller = {
 	getGastosOrange: async (req, res) => {
 		try {
 			await asegurarTiposBase();
-			const gastos = await GastoOrange.find({})
+			const filtroFecha = construirFiltroFechaConsulta(req.query);
+			if (!filtroFecha.ok) {
+				return res.status(filtroFecha.status).send({ message: filtroFecha.message });
+			}
+
+			const gastos = await GastoOrange.find(filtroFecha.filtro)
 				.populate('cuentaDebeId', 'idCuenta nombre categoria liquidez')
 				.populate('cuentaHaberId', 'idCuenta nombre categoria liquidez')
 				.sort({ fecha: -1 });
@@ -373,7 +402,14 @@ var controller = {
 	getResumenGastosOrange: async (req, res) => {
 		try {
 			await asegurarTiposBase();
+			const filtroFecha = construirFiltroFechaConsulta(req.query);
+			if (!filtroFecha.ok) {
+				return res.status(filtroFecha.status).send({ message: filtroFecha.message });
+			}
+
+			const matchStage = Object.keys(filtroFecha.filtro).length > 0 ? [{ $match: filtroFecha.filtro }] : [];
 			const resumenGlobal = await GastoOrange.aggregate([
+				...matchStage,
 				{
 					$group: {
 						_id: null,
@@ -384,6 +420,7 @@ var controller = {
 			]);
 
 			const porClase = await GastoOrange.aggregate([
+				...matchStage,
 				{
 					$project: {
 						claseGasto: { $ifNull: ['$claseGasto', 'sin clasificar'] },
@@ -401,6 +438,7 @@ var controller = {
 			]);
 
 			const porTipo = await GastoOrange.aggregate([
+				...matchStage,
 				{
 					$project: {
 						claseGasto: { $ifNull: ['$claseGasto', 'sin clasificar'] },
@@ -457,9 +495,9 @@ var controller = {
 				return res.status(400).send({ message: 'La combinacion clase / subclase / tipo no existe en el catalogo' });
 			}
 
-			const validacionCuentas = await validarCuentasAsiento(params.cuentaDebeId, params.cuentaHaberId);
-			if (!validacionCuentas.ok) {
-				return res.status(validacionCuentas.status).send({ message: validacionCuentas.message });
+			const cuentasResueltas = await resolverCuentasAsiento(claseGasto, subclaseGasto);
+			if (!cuentasResueltas.ok) {
+				return res.status(400).send({ message: cuentasResueltas.message });
 			}
 
 			const gasto = new GastoOrange({
@@ -471,8 +509,8 @@ var controller = {
 				categoriaGasto: normalizarTexto(params.categoriaGasto) || presentarJerarquia(claseGasto, subclaseGasto, tipoGasto),
 				descripcion,
 				observaciones: normalizarTexto(params.observaciones),
-				cuentaDebeId: params.cuentaDebeId,
-				cuentaHaberId: params.cuentaHaberId
+				cuentaDebeId: cuentasResueltas.cuentaDebe._id,
+				cuentaHaberId: cuentasResueltas.cuentaHaber._id
 			});
 
 			const gastoStored = await gasto.save();
@@ -516,9 +554,9 @@ var controller = {
 				return res.status(400).send({ message: 'La combinacion clase / subclase / tipo no existe en el catalogo' });
 			}
 
-			const validacionCuentas = await validarCuentasAsiento(params.cuentaDebeId, params.cuentaHaberId);
-			if (!validacionCuentas.ok) {
-				return res.status(validacionCuentas.status).send({ message: validacionCuentas.message });
+			const cuentasResueltas = await resolverCuentasAsiento(claseGasto, subclaseGasto);
+			if (!cuentasResueltas.ok) {
+				return res.status(400).send({ message: cuentasResueltas.message });
 			}
 
 			const gastoActualizado = await GastoOrange.findByIdAndUpdate(
@@ -532,8 +570,8 @@ var controller = {
 					categoriaGasto: normalizarTexto(params.categoriaGasto) || presentarJerarquia(claseGasto, subclaseGasto, tipoGasto),
 					descripcion,
 					observaciones: normalizarTexto(params.observaciones),
-					cuentaDebeId: params.cuentaDebeId,
-					cuentaHaberId: params.cuentaHaberId
+					cuentaDebeId: cuentasResueltas.cuentaDebe._id,
+					cuentaHaberId: cuentasResueltas.cuentaHaber._id
 				},
 				{ returnDocument: 'after' }
 			)

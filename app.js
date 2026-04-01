@@ -31,9 +31,11 @@ var routesGastosMios = require('./routes/routes-gastosMios.js');
 var routesGastosFamiliares = require('./routes/routes-gastosFamiliares.js');
 var routesDeudasFamiliares = require('./routes/routes-deudasFamiliares.js');
 var routesDashboardPersonal = require('./routes/routes-dashboardPersonal.js');
+var routesDashboardOrange = require('./routes/routes-dashboardOrange.js');
 var routesInsumos = require('./routes/routes-insumos.js');
 var routesVentas = require('./routes/routes-ventas.js');
 var mdAuth = require('./middlewares/authenticated');
+var mdRoles = require('./middlewares/authenticated');
 
 //moddlewares
 app.use(express.urlencoded({ extended: true }));
@@ -50,6 +52,36 @@ app.use(cors({
 app.use('/api', routesAuth);
 app.use('/api', routesIntegrations);
 app.use('/api', mdAuth.ensureAuth);
+/* ── Protección por rol (después de ensureAuth) ───────────────────────────── */
+// Rutas del panel Orange: admin, orange y orange_pos
+app.use('/api', (req, res, next) => {
+    if (/^\/orange(\/|$)/.test(req.path)) {
+        return mdRoles.requireRoles(['admin', 'orange', 'orange_pos'])(req, res, next);
+    }
+    next();
+});
+
+// Rutas del panel Personal: solo admin
+app.use('/api', (req, res, next) => {
+    if (/^\/personal(\/|$)/.test(req.path)) {
+        return mdRoles.requireRoles(['admin'])(req, res, next);
+    }
+    next();
+});
+
+// Rutas del panel Almacén (todo lo demás, excepto auth): solo admin y almacen
+app.use('/api', (req, res, next) => {
+    const path = req.path;
+    if (
+        path.startsWith('/auth') ||
+        path.startsWith('/orange') ||
+        path.startsWith('/personal')
+    ) {
+        return next();
+    }
+    return mdRoles.requireRoles(['admin', 'almacen'])(req, res, next);
+});
+
 app.use('/api', routesCuentas);
 app.use('/api', routesMovimientos);
 app.use('/api', routesCierresDiarios);
@@ -73,6 +105,7 @@ app.use('/api', routesGastosMios);
 app.use('/api', routesGastosFamiliares);
 app.use('/api', routesDeudasFamiliares);
 app.use('/api', routesDashboardPersonal);
+app.use('/api', routesDashboardOrange);
 app.use('/api', routesInsumos);
 app.use('/api', routesVentas);
 

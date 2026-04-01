@@ -38,7 +38,9 @@ var VentaSchema = new Schema({
 	
 	// Tiempos
 	fecha_apertura: { type: Date, default: Date.now },
+	fecha_apertura_local: { type: String, default: '' },
 	fecha_cierre: { type: Date },
+	fecha_cierre_local: { type: String, default: '' },
 	
 	// Pago
 	metodo_pago: { type: String, enum: ['efectivo', 'tarjeta', 'mixto', 'otro'], default: 'efectivo' },

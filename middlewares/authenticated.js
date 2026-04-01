@@ -23,3 +23,18 @@ exports.ensureAuth = (req, res, next) => {
 		return res.status(401).send({ message: 'Token invalido o expirado' });
 	}
 };
+
+/**
+ * Middleware factory que verifica que el usuario tenga uno de los roles permitidos.
+ * Debe usarse después de ensureAuth.
+ * @param {string[]} roles - Roles permitidos, ej: ['admin', 'orange']
+ */
+exports.requireRoles = (roles) => {
+	return (req, res, next) => {
+		const role = String(req.user && req.user.role || '');
+		if (!roles.includes(role)) {
+			return res.status(403).send({ message: 'No tienes permiso para acceder a esta sección' });
+		}
+		next();
+	};
+};

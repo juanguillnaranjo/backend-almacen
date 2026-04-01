@@ -6,6 +6,7 @@ var router = express.Router();
 
 router.get('/orange/getCierresOrange',            controller.getCierresOrange);
 router.get('/orange/getCierreOrange/:fecha',      controller.getCierreOrangeByFecha);
+router.delete('/orange/deleteCierreOrange/:fecha', controller.deleteCierreOrangeByFecha);
 router.post('/orange/upsertCierreOrange',         controller.upsertCierreOrange);
 router.post('/orange/rehacerCierreOrange',        controller.rehacerCierreOrange);
 
