@@ -16,7 +16,9 @@ router.post('/personal/createProveedorDeudaMia', controllerDeudasMias.createProv
 router.put('/personal/updateProveedorDeudaMia/:id', controllerDeudasMias.updateProveedorDeudaMia);
 router.delete('/personal/deleteProveedorDeudaMia/:id', controllerDeudasMias.deleteProveedorDeudaMia);
 router.post('/personal/addFacturaProveedorMia/:idProveedor', controllerDeudasMias.addFacturaProveedorMia);
+router.put('/personal/updateFacturaProveedorMia/:idProveedor/:idFactura', controllerDeudasMias.updateFacturaProveedorMia);
 router.post('/personal/abonarFacturaProveedorMia/:idProveedor/:idFactura', controllerDeudasMias.abonarFacturaProveedorMia);
+router.put('/personal/updateAbonoFacturaProveedorMia/:idProveedor/:idFactura/:indexAbono', controllerDeudasMias.updateAbonoFacturaProveedorMia);
 router.delete('/personal/deleteAbonoFacturaProveedorMia/:idProveedor/:idFactura/:indexAbono', controllerDeudasMias.deleteAbonoFacturaProveedorMia);
 router.delete('/personal/deleteFacturaProveedorMia/:idProveedor/:idFactura', controllerDeudasMias.deleteFacturaProveedorMia);
 

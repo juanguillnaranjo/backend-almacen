@@ -574,6 +574,119 @@ var controller = {
 		}
 	},
 
+	updateFacturaProveedorMia: async (req, res) => {
+		try {
+			const idProveedor = req.params.idProveedor;
+			const idFactura = req.params.idFactura;
+
+			if (!idProveedor || !mongoose.Types.ObjectId.isValid(idProveedor)) {
+				return res.status(400).send({ message: 'Id de proveedor invalido' });
+			}
+
+			if (!idFactura || !mongoose.Types.ObjectId.isValid(idFactura)) {
+				return res.status(400).send({ message: 'Id de factura invalido' });
+			}
+
+			const proveedor = await DeudaMia.findById(idProveedor);
+			if (!proveedor) {
+				return res.status(404).send({ message: 'Proveedor no encontrado' });
+			}
+
+			const factura = proveedor.facturas.id(idFactura);
+			if (!factura) {
+				return res.status(404).send({ message: 'Factura no encontrada para este proveedor' });
+			}
+
+			const params = req.body || {};
+			const numeroFactura = normalizarTexto(params.numeroFactura);
+			const tipoDeuda = normalizarTipoDeuda(params.tipoDeuda);
+			const fechaFactura = normalizarFecha(params.fechaFactura);
+			const montoFactura = toNumber(params.montoFactura);
+			const cuentaDebeId = String(params.cuentaDebeId || '').trim();
+			const cuentaHaberId = String(params.cuentaHaberId || '').trim();
+
+			if (!numeroFactura) {
+				return res.status(400).send({ message: 'numeroFactura es obligatorio' });
+			}
+
+			if (!tipoDeuda) {
+				return res.status(400).send({ message: 'tipoDeuda es obligatorio' });
+			}
+
+			if (!fechaFactura) {
+				return res.status(400).send({ message: 'fechaFactura invalida. Usa formato YYYY-MM-DD' });
+			}
+
+			if (montoFactura === null || montoFactura <= 0) {
+				return res.status(400).send({ message: 'montoFactura debe ser numerico y mayor a 0' });
+			}
+
+			if (!validarObjectId(cuentaDebeId) || !validarObjectId(cuentaHaberId)) {
+				return res.status(400).send({ message: 'Debes seleccionar cuenta debe y cuenta haber validas para la factura' });
+			}
+
+			if (cuentaDebeId === cuentaHaberId) {
+				return res.status(400).send({ message: 'Las cuentas de debe y haber en la factura deben ser diferentes' });
+			}
+
+			if (Number(factura.montoAbonado || 0) > montoFactura) {
+				return res.status(400).send({ message: 'El nuevo monto de la factura no puede ser menor al total ya abonado' });
+			}
+
+			await asegurarTiposBaseDeuda();
+			const tipoExiste = await TipoDeudaMia.exists({ nombre: tipoDeuda });
+			if (!tipoExiste) {
+				return res.status(400).send({ message: 'El tipo de deuda no existe en el catalogo' });
+			}
+
+			const [cuentaDebe, cuentaHaber] = await Promise.all([
+				CuentaMia.findById(cuentaDebeId),
+				CuentaMia.findById(cuentaHaberId)
+			]);
+
+			if (!cuentaDebe || !cuentaHaber) {
+				return res.status(404).send({ message: 'La cuenta debe o haber seleccionada no existe' });
+			}
+
+			const repetida = proveedor.facturas.find(f =>
+				String(f._id) !== String(factura._id)
+				&& String(f.numeroFactura).toLowerCase() === numeroFactura.toLowerCase()
+			);
+
+			if (repetida) {
+				return res.status(409).send({ message: 'Ya existe una factura con ese numero para este proveedor' });
+			}
+
+			factura.numeroFactura = numeroFactura;
+			factura.tipoDeuda = tipoDeuda;
+			factura.fechaFactura = fechaFactura;
+			factura.montoFactura = montoFactura;
+			factura.cuentaDebeId = cuentaDebeId;
+			factura.cuentaHaberId = cuentaHaberId;
+			factura.saldoPendiente = Number((Number(factura.montoFactura) - Number(factura.montoAbonado || 0)).toFixed(2));
+			factura.estado = calcularEstadoFactura(factura.montoFactura, factura.montoAbonado);
+
+			recalcularTotalesProveedor(proveedor);
+			const proveedorStored = await proveedor.save();
+			const facturaGuardada = proveedorStored.facturas.id(idFactura);
+
+			const movimientos = construirMovimientosFacturaMia(proveedorStored, facturaGuardada);
+
+			await MovimientoMio.deleteMany({
+				origenModelo: ORIGEN_MODELO_DEUDAS_MIAS,
+				_idOrigen: factura._id
+			});
+
+			if (movimientos.length > 0) {
+				await MovimientoMio.insertMany(movimientos);
+			}
+
+			return res.status(200).send({ proveedor: proveedorStored, movimientosGenerados: movimientos.length });
+		} catch (err) {
+			return res.status(500).send({ message: 'Error al editar factura del proveedor personal', error: err });
+		}
+	},
+
 	abonarFacturaProveedorMia: async (req, res) => {
 		try {
 			const idProveedor = req.params.idProveedor;
@@ -661,6 +774,110 @@ var controller = {
 			return res.status(200).send({ proveedor: proveedorStored, movimientosGenerados: movimientos.length });
 		} catch (err) {
 			return res.status(500).send({ message: 'Error al registrar abono de factura personal', error: err });
+		}
+	},
+
+	updateAbonoFacturaProveedorMia: async (req, res) => {
+		try {
+			const idProveedor = req.params.idProveedor;
+			const idFactura = req.params.idFactura;
+			const indexAbono = Number(req.params.indexAbono);
+
+			if (!idProveedor || !mongoose.Types.ObjectId.isValid(idProveedor)) {
+				return res.status(400).send({ message: 'Id de proveedor invalido' });
+			}
+
+			if (!idFactura || !mongoose.Types.ObjectId.isValid(idFactura)) {
+				return res.status(400).send({ message: 'Id de factura invalido' });
+			}
+
+			if (!Number.isInteger(indexAbono) || indexAbono < 0) {
+				return res.status(400).send({ message: 'Indice de abono invalido' });
+			}
+
+			const proveedor = await DeudaMia.findById(idProveedor);
+			if (!proveedor) {
+				return res.status(404).send({ message: 'Proveedor no encontrado' });
+			}
+
+			const factura = proveedor.facturas.id(idFactura);
+			if (!factura) {
+				return res.status(404).send({ message: 'Factura no encontrada para este proveedor' });
+			}
+
+			if (!Array.isArray(factura.abonos) || indexAbono >= factura.abonos.length) {
+				return res.status(404).send({ message: 'Abono no encontrado para esta factura' });
+			}
+
+			const abono = factura.abonos[indexAbono];
+			const monto = toNumber(req.body.monto);
+			const fecha = req.body.fecha ? normalizarFecha(req.body.fecha) : null;
+			const cuentaDebeId = String(req.body.cuentaDebeId || '').trim();
+			const cuentaHaberId = String(req.body.cuentaHaberId || '').trim();
+
+			if (monto === null || monto <= 0) {
+				return res.status(400).send({ message: 'El monto del abono debe ser mayor a 0' });
+			}
+
+			if (!fecha) {
+				return res.status(400).send({ message: 'Fecha de abono invalida. Usa formato YYYY-MM-DD' });
+			}
+
+			if (!validarObjectId(cuentaDebeId) || !validarObjectId(cuentaHaberId)) {
+				return res.status(400).send({ message: 'Debes seleccionar cuenta debe y cuenta haber validas para el abono' });
+			}
+
+			if (cuentaDebeId === cuentaHaberId) {
+				return res.status(400).send({ message: 'Las cuentas de debe y haber en el abono deben ser diferentes' });
+			}
+
+			const [cuentaDebe, cuentaHaber] = await Promise.all([
+				CuentaMia.findById(cuentaDebeId),
+				CuentaMia.findById(cuentaHaberId)
+			]);
+
+			if (!cuentaDebe || !cuentaHaber) {
+				return res.status(404).send({ message: 'La cuenta debe o haber seleccionada no existe' });
+			}
+
+			const saldoDisponible = Number(factura.saldoPendiente || 0) + Number(abono.monto || 0);
+			if (monto > saldoDisponible) {
+				return res.status(400).send({ message: 'El abono no puede superar el saldo pendiente disponible de la factura' });
+			}
+
+			abono.monto = monto;
+			abono.fecha = fecha;
+			abono.descripcion = normalizarTexto(req.body.descripcion) || 'Abono de factura';
+			abono.cuentaDebeId = cuentaDebeId;
+			abono.cuentaHaberId = cuentaHaberId;
+
+			let totalAbonosFactura = 0;
+			for (const item of factura.abonos) {
+				totalAbonosFactura += Number(item.monto || 0);
+			}
+
+			factura.montoAbonado = Number(totalAbonosFactura.toFixed(2));
+			factura.saldoPendiente = Number((Number(factura.montoFactura) - Number(factura.montoAbonado)).toFixed(2));
+			factura.estado = calcularEstadoFactura(factura.montoFactura, factura.montoAbonado);
+
+			recalcularTotalesProveedor(proveedor);
+			const proveedorStored = await proveedor.save();
+			const facturaGuardada = proveedorStored.facturas.id(idFactura);
+
+			const movimientos = construirMovimientosFacturaMia(proveedorStored, facturaGuardada);
+
+			await MovimientoMio.deleteMany({
+				origenModelo: ORIGEN_MODELO_DEUDAS_MIAS,
+				_idOrigen: factura._id
+			});
+
+			if (movimientos.length > 0) {
+				await MovimientoMio.insertMany(movimientos);
+			}
+
+			return res.status(200).send({ proveedor: proveedorStored, movimientosGenerados: movimientos.length });
+		} catch (err) {
+			return res.status(500).send({ message: 'Error al editar abono de factura personal', error: err });
 		}
 	},
 
